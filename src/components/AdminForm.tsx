@@ -184,6 +184,12 @@ export function AdminForm() {
           </div>
         </div>
 
+        <p className="helper-text">
+          Use this flow: click the route on the map, check the snapped draft point, set the sighting time,
+          then save. The public tracker uses that new point immediately and recalculates speed from the
+          previous confirmed point or the parade start.
+        </p>
+
         <form className="field-grid" onSubmit={handleSubmit}>
           <div className="field-row">
             <label htmlFor="admin-password">Admin password</label>

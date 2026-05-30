@@ -1,9 +1,9 @@
 [
   {
-    "id": "angel",
-    "name": "Angel",
-    "latitude": 51.5321,
-    "longitude": -0.1058,
+    "id": "emirates-start",
+    "name": "Emirates Stadium / Holloway Road Start",
+    "latitude": 51.555,
+    "longitude": -0.1093,
     "distanceAlongRouteKm": 0
   },
   {
@@ -11,55 +11,69 @@
     "name": "Highbury & Islington",
     "latitude": 51.5462,
     "longitude": -0.1033,
-    "distanceAlongRouteKm": 1.81
+    "distanceAlongRouteKm": 1.19
   },
   {
-    "id": "holloway-road",
-    "name": "Holloway Road",
-    "latitude": 51.5538,
-    "longitude": -0.1177,
-    "distanceAlongRouteKm": 3.09
-  },
-  {
-    "id": "seven-sisters-road",
-    "name": "Seven Sisters Road",
-    "latitude": 51.5582,
-    "longitude": -0.1094,
-    "distanceAlongRouteKm": 4.09
-  },
-  {
-    "id": "blackstock-road",
-    "name": "Blackstock Road",
-    "latitude": 51.5616,
-    "longitude": -0.1007,
-    "distanceAlongRouteKm": 4.89
-  },
-  {
-    "id": "mountgrove-road",
-    "name": "Mountgrove Road",
-    "latitude": 51.5578,
-    "longitude": -0.0852,
-    "distanceAlongRouteKm": 6.28
-  },
-  {
-    "id": "green-lanes",
-    "name": "Green Lanes",
-    "latitude": 51.5484,
-    "longitude": -0.0785,
-    "distanceAlongRouteKm": 7.51
+    "id": "angel",
+    "name": "Angel",
+    "latitude": 51.5321,
+    "longitude": -0.1058,
+    "distanceAlongRouteKm": 2.75
   },
   {
     "id": "essex-road",
     "name": "Essex Road",
     "latitude": 51.5388,
     "longitude": -0.0938,
-    "distanceAlongRouteKm": 9.27
+    "distanceAlongRouteKm": 3.86
   },
   {
-    "id": "angel-finish",
-    "name": "Angel Finish",
-    "latitude": 51.5321,
-    "longitude": -0.1058,
-    "distanceAlongRouteKm": 10.33
+    "id": "newington-green-road",
+    "name": "Newington Green Road",
+    "latitude": 51.5412,
+    "longitude": -0.0788,
+    "distanceAlongRouteKm": 4.98
+  },
+  {
+    "id": "green-lanes",
+    "name": "Green Lanes",
+    "latitude": 51.5484,
+    "longitude": -0.0785,
+    "distanceAlongRouteKm": 5.78
+  },
+  {
+    "id": "mountgrove-road",
+    "name": "Mountgrove Road",
+    "latitude": 51.5578,
+    "longitude": -0.0852,
+    "distanceAlongRouteKm": 7.04
+  },
+  {
+    "id": "holloway-road",
+    "name": "Holloway Road",
+    "latitude": 51.5538,
+    "longitude": -0.1177,
+    "distanceAlongRouteKm": 10.11
+  },
+  {
+    "id": "seven-sisters-road",
+    "name": "Seven Sisters Road",
+    "latitude": 51.5582,
+    "longitude": -0.1094,
+    "distanceAlongRouteKm": 9.36
+  },
+  {
+    "id": "blackstock-road",
+    "name": "Blackstock Road",
+    "latitude": 51.5616,
+    "longitude": -0.1007,
+    "distanceAlongRouteKm": 8.66
+  },
+  {
+    "id": "emirates-finish",
+    "name": "Emirates Return / Holloway Road",
+    "latitude": 51.5545,
+    "longitude": -0.1115,
+    "distanceAlongRouteKm": 10.55
   }
 ]

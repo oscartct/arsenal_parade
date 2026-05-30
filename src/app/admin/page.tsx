@@ -14,6 +14,9 @@ export default function AdminPage() {
           </p>
         </section>
         <p className="admin-note">
+          Open this page directly at <strong>/admin</strong>. It is not linked from the public tracker.
+        </p>
+        <p className="admin-note">
           Public page: <Link className="inline-link" href="/">open tracker</Link>
         </p>
         <AdminForm />
