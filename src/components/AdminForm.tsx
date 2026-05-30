@@ -69,7 +69,15 @@ export function AdminForm() {
       return;
     }
 
-    setDraftSelection(snapPointToRoute(payload.route, payload.checkpoints, latitude, longitude));
+    setDraftSelection(
+      snapPointToRoute(
+        payload.route,
+        payload.checkpoints,
+        latitude,
+        longitude,
+        latestSummary?.distanceAlongRouteKm ?? 0
+      )
+    );
     setFeedback(null);
   };
 
@@ -189,6 +197,12 @@ export function AdminForm() {
           then save. The public tracker uses that new point immediately and recalculates speed from the
           previous confirmed point or the parade start.
         </p>
+        {latestSummary ? (
+          <p className="helper-text">
+            Latest saved sighting: {latestSummary.checkpointName} at {formatDateTime(latestSummary.sightingTimeIso)}.
+            Your next sighting should be later than that time and further along the route.
+          </p>
+        ) : null}
 
         <form className="field-grid" onSubmit={handleSubmit}>
           <div className="field-row">

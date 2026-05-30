@@ -165,7 +165,13 @@ export async function saveSighting(input: SightingInput) {
         distanceAlongRouteKm: checkpoint.distanceAlongRouteKm,
         label: checkpoint.name
       }
-    : snapPointToRoute(route, checkpoints, input.latitude as number, input.longitude as number);
+    : snapPointToRoute(
+        route,
+        checkpoints,
+        input.latitude as number,
+        input.longitude as number,
+        previousSighting.distanceAlongRouteKm
+      );
 
   const nextRecord: SightingRecord = {
     id: `${routeSelection.distanceAlongRouteKm}-${sightingTime.getTime()}`,

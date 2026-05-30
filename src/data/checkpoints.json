@@ -1,79 +1,107 @@
 [
   {
-    "id": "emirates-start",
-    "name": "Emirates Stadium / Holloway Road Start",
-    "latitude": 51.555,
-    "longitude": -0.1093,
+    "id": "drayton-park-start",
+    "name": "Holloway Road / Drayton Park Start",
+    "latitude": 51.55085,
+    "longitude": -0.11035,
     "distanceAlongRouteKm": 0
+  },
+  {
+    "id": "holloway-road",
+    "name": "Holloway Road",
+    "latitude": 51.553,
+    "longitude": -0.1134,
+    "distanceAlongRouteKm": 0.32
+  },
+  {
+    "id": "seven-sisters-road",
+    "name": "Seven Sisters Road",
+    "latitude": 51.5579,
+    "longitude": -0.1096,
+    "distanceAlongRouteKm": 1.09
+  },
+  {
+    "id": "blackstock-road",
+    "name": "Blackstock Road",
+    "latitude": 51.5607,
+    "longitude": -0.1016,
+    "distanceAlongRouteKm": 1.78
+  },
+  {
+    "id": "mountgrove-road",
+    "name": "Mount Grove Road",
+    "latitude": 51.5582,
+    "longitude": -0.0888,
+    "distanceAlongRouteKm": 2.7
+  },
+  {
+    "id": "green-lanes",
+    "name": "Green Lanes",
+    "latitude": 51.5512,
+    "longitude": -0.0794,
+    "distanceAlongRouteKm": 3.86
+  },
+  {
+    "id": "petherton-road",
+    "name": "Petherton Road",
+    "latitude": 51.5465,
+    "longitude": -0.0788,
+    "distanceAlongRouteKm": 4.38
+  },
+  {
+    "id": "beresford-road",
+    "name": "Beresford Road",
+    "latitude": 51.5438,
+    "longitude": -0.0749,
+    "distanceAlongRouteKm": 4.91
+  },
+  {
+    "id": "newington-green-road",
+    "name": "Newington Green Road",
+    "latitude": 51.5418,
+    "longitude": -0.08,
+    "distanceAlongRouteKm": 5.33
+  },
+  {
+    "id": "essex-road",
+    "name": "Essex Road",
+    "latitude": 51.5372,
+    "longitude": -0.0918,
+    "distanceAlongRouteKm": 6.29
+  },
+  {
+    "id": "angel",
+    "name": "Angel",
+    "latitude": 51.53215,
+    "longitude": -0.1058,
+    "distanceAlongRouteKm": 7.42
+  },
+  {
+    "id": "upper-street",
+    "name": "Upper Street",
+    "latitude": 51.5398,
+    "longitude": -0.1039,
+    "distanceAlongRouteKm": 8.28
   },
   {
     "id": "highbury-islington",
     "name": "Highbury & Islington",
     "latitude": 51.5462,
     "longitude": -0.1033,
-    "distanceAlongRouteKm": 1.19
+    "distanceAlongRouteKm": 8.99
   },
   {
-    "id": "angel",
-    "name": "Angel",
-    "latitude": 51.5321,
-    "longitude": -0.1058,
-    "distanceAlongRouteKm": 2.75
+    "id": "holloway-road-return",
+    "name": "Holloway Road Return",
+    "latitude": 51.5492,
+    "longitude": -0.1074,
+    "distanceAlongRouteKm": 9.43
   },
   {
-    "id": "essex-road",
-    "name": "Essex Road",
-    "latitude": 51.5388,
-    "longitude": -0.0938,
-    "distanceAlongRouteKm": 3.86
-  },
-  {
-    "id": "newington-green-road",
-    "name": "Newington Green Road",
-    "latitude": 51.5412,
-    "longitude": -0.0788,
-    "distanceAlongRouteKm": 4.98
-  },
-  {
-    "id": "green-lanes",
-    "name": "Green Lanes",
-    "latitude": 51.5484,
-    "longitude": -0.0785,
-    "distanceAlongRouteKm": 5.78
-  },
-  {
-    "id": "mountgrove-road",
-    "name": "Mountgrove Road",
-    "latitude": 51.5578,
-    "longitude": -0.0852,
-    "distanceAlongRouteKm": 7.04
-  },
-  {
-    "id": "holloway-road",
-    "name": "Holloway Road",
-    "latitude": 51.5538,
-    "longitude": -0.1177,
-    "distanceAlongRouteKm": 10.11
-  },
-  {
-    "id": "seven-sisters-road",
-    "name": "Seven Sisters Road",
-    "latitude": 51.5582,
-    "longitude": -0.1094,
-    "distanceAlongRouteKm": 9.36
-  },
-  {
-    "id": "blackstock-road",
-    "name": "Blackstock Road",
-    "latitude": 51.5616,
-    "longitude": -0.1007,
-    "distanceAlongRouteKm": 8.66
-  },
-  {
-    "id": "emirates-finish",
-    "name": "Emirates Return / Holloway Road",
-    "latitude": 51.5545,
-    "longitude": -0.1115,
-    "distanceAlongRouteKm": 10.55
+    "id": "drayton-park-finish",
+    "name": "Holloway Road / Drayton Park Finish",
+    "latitude": 51.55085,
+    "longitude": -0.11035,
+    "distanceAlongRouteKm": 9.71
   }
 ]

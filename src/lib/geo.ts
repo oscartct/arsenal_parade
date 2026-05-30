@@ -123,7 +123,8 @@ export function snapPointToRoute(
   route: RouteFeature,
   checkpoints: Checkpoint[],
   latitude: number,
-  longitude: number
+  longitude: number,
+  minDistanceKm = 0
 ): RouteSnap {
   if (route.geometry.coordinates.length === 0) {
     return {
@@ -157,23 +158,35 @@ export function snapPointToRoute(
     const startY = startLatitude * latScale;
     const endX = endLongitude * lonScale;
     const endY = endLatitude * latScale;
+    const segmentDistanceKm = haversineDistanceKm(startLatitude, startLongitude, endLatitude, endLongitude);
 
     const segmentDx = endX - startX;
     const segmentDy = endY - startY;
     const segmentLengthSquared = segmentDx ** 2 + segmentDy ** 2;
+    const segmentStartKm = distanceBeforeSegmentKm;
+    const segmentEndKm = distanceBeforeSegmentKm + segmentDistanceKm;
+
+    if (segmentEndKm < minDistanceKm) {
+      distanceBeforeSegmentKm += segmentDistanceKm;
+      continue;
+    }
+
+    const minimumProjection =
+      segmentDistanceKm === 0 || minDistanceKm <= segmentStartKm
+        ? 0
+        : clampNumber((minDistanceKm - segmentStartKm) / segmentDistanceKm, 0, 1);
     const projection =
       segmentLengthSquared === 0
-        ? 0
+        ? minimumProjection
         : clampNumber(
             ((targetX - startX) * segmentDx + (targetY - startY) * segmentDy) / segmentLengthSquared,
-            0,
+            minimumProjection,
             1
           );
 
     const snappedX = startX + segmentDx * projection;
     const snappedY = startY + segmentDy * projection;
     const distanceSquared = (targetX - snappedX) ** 2 + (targetY - snappedY) ** 2;
-    const segmentDistanceKm = haversineDistanceKm(startLatitude, startLongitude, endLatitude, endLongitude);
 
     if (distanceSquared < bestDistanceSquared) {
       const snappedLatitude = startLatitude + (endLatitude - startLatitude) * projection;
@@ -190,6 +203,18 @@ export function snapPointToRoute(
     }
 
     distanceBeforeSegmentKm += segmentDistanceKm;
+  }
+
+  if (bestDistanceSquared === Number.POSITIVE_INFINITY) {
+    const fallbackDistanceKm = clampNumber(minDistanceKm, 0, getRouteLengthKm(route));
+    const fallbackPosition = interpolatePositionAlongRoute(route, fallbackDistanceKm);
+
+    return {
+      latitude: fallbackPosition.latitude,
+      longitude: fallbackPosition.longitude,
+      distanceAlongRouteKm: fallbackDistanceKm,
+      label: describeSnap(fallbackDistanceKm, checkpoints)
+    };
   }
 
   return bestSnap;
