@@ -43,6 +43,8 @@ export type RouteFeature = {
   };
 };
 
+export type RouteCoordinate = [number, number];
+
 export type TrackerSnapshot = {
   paradeStartIso: string;
   evaluatedAtIso: string;
@@ -82,4 +84,8 @@ export type RouteSnap = {
   longitude: number;
   distanceAlongRouteKm: number;
   label: string;
+};
+
+export type RouteEditorInput = {
+  coordinates: RouteCoordinate[];
 };

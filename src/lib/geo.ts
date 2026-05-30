@@ -1,4 +1,4 @@
-import type { Checkpoint, RouteFeature, RouteSnap } from "@/lib/types";
+import type { Checkpoint, RouteCoordinate, RouteFeature, RouteSnap } from "@/lib/types";
 
 export function clampNumber(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max);
@@ -102,6 +102,10 @@ function longitudeScaleKm(latitude: number) {
 }
 
 function describeSnap(distanceKm: number, checkpoints: Checkpoint[]) {
+  if (checkpoints.length === 0) {
+    return "Manual sighting";
+  }
+
   let previousCheckpoint = checkpoints[0];
 
   for (const checkpoint of checkpoints) {
@@ -218,4 +222,34 @@ export function snapPointToRoute(
   }
 
   return bestSnap;
+}
+
+export function buildRouteFeature(coordinates: RouteCoordinate[]): RouteFeature {
+  return {
+    type: "Feature",
+    properties: {
+      name: "Arsenal Parade Route",
+      note: "Route drawn directly on the live map from the admin editor."
+    },
+    geometry: {
+      type: "LineString",
+      coordinates
+    }
+  };
+}
+
+export function projectCheckpointsOntoRoute(route: RouteFeature, checkpoints: Checkpoint[]) {
+  let minimumDistanceKm = 0;
+
+  return checkpoints.map((checkpoint) => {
+    const snapped = snapPointToRoute(route, checkpoints, checkpoint.latitude, checkpoint.longitude, minimumDistanceKm);
+    minimumDistanceKm = snapped.distanceAlongRouteKm;
+
+    return {
+      ...checkpoint,
+      latitude: roundTo(snapped.latitude, 6),
+      longitude: roundTo(snapped.longitude, 6),
+      distanceAlongRouteKm: roundTo(snapped.distanceAlongRouteKm, 3)
+    };
+  });
 }

@@ -2,10 +2,12 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { DEFAULT_SPEED_KMH, PARADE_START_ISO, ROUTE_POLL_INTERVAL_MS } from "@/lib/config";
 import { buildTrackerSnapshot, calculateSpeedFromSightings } from "@/lib/estimation";
-import { snapPointToRoute } from "@/lib/geo";
+import { buildRouteFeature, projectCheckpointsOntoRoute, snapPointToRoute } from "@/lib/geo";
 import type {
   AdminApiPayload,
   Checkpoint,
+  RouteCoordinate,
+  RouteEditorInput,
   RouteFeature,
   SightingInput,
   SightingRecord,
@@ -13,7 +15,10 @@ import type {
 } from "@/lib/types";
 
 type GlobalState = typeof globalThis & {
+  __arsenalParadeRoute?: RouteFeature;
+  __arsenalParadeCheckpoints?: Checkpoint[];
   __arsenalParadeSightings?: SightingRecord[];
+  __arsenalParadeRouteStorageMode?: "file" | "memory";
   __arsenalParadeStorageMode?: "file" | "memory";
 };
 
@@ -33,12 +38,36 @@ async function writeJsonFile(fileName: string, value: unknown) {
 }
 
 export async function getRoute(): Promise<RouteFeature> {
-  return readJsonFile<RouteFeature>("route.geojson");
+  try {
+    const route = await readJsonFile<RouteFeature>("route.geojson");
+    runtimeState.__arsenalParadeRoute = route;
+    runtimeState.__arsenalParadeRouteStorageMode = "file";
+    return route;
+  } catch {
+    if (runtimeState.__arsenalParadeRoute) {
+      runtimeState.__arsenalParadeRouteStorageMode = "memory";
+      return runtimeState.__arsenalParadeRoute;
+    }
+
+    throw new Error("Route data is unavailable.");
+  }
 }
 
 export async function getCheckpoints(): Promise<Checkpoint[]> {
-  const checkpoints = await readJsonFile<Checkpoint[]>("checkpoints.json");
-  return checkpoints.sort((left, right) => left.distanceAlongRouteKm - right.distanceAlongRouteKm);
+  try {
+    const checkpoints = await readJsonFile<Checkpoint[]>("checkpoints.json");
+    const sorted = checkpoints.sort((left, right) => left.distanceAlongRouteKm - right.distanceAlongRouteKm);
+    runtimeState.__arsenalParadeCheckpoints = sorted;
+    runtimeState.__arsenalParadeRouteStorageMode = "file";
+    return sorted;
+  } catch {
+    if (runtimeState.__arsenalParadeCheckpoints) {
+      runtimeState.__arsenalParadeRouteStorageMode = "memory";
+      return runtimeState.__arsenalParadeCheckpoints;
+    }
+
+    throw new Error("Checkpoint data is unavailable.");
+  }
 }
 
 async function loadSightingsFromDisk() {
@@ -71,6 +100,19 @@ async function persistSightings(sightings: SightingRecord[]) {
     runtimeState.__arsenalParadeStorageMode = "file";
   } catch {
     runtimeState.__arsenalParadeStorageMode = "memory";
+  }
+}
+
+async function persistRouteAndCheckpoints(route: RouteFeature, checkpoints: Checkpoint[]) {
+  runtimeState.__arsenalParadeRoute = route;
+  runtimeState.__arsenalParadeCheckpoints = checkpoints;
+
+  try {
+    await writeJsonFile("route.geojson", route);
+    await writeJsonFile("checkpoints.json", checkpoints);
+    runtimeState.__arsenalParadeRouteStorageMode = "file";
+  } catch {
+    runtimeState.__arsenalParadeRouteStorageMode = "memory";
   }
 }
 
@@ -198,5 +240,27 @@ export async function saveSighting(input: SightingInput) {
   return {
     ok: true,
     sighting: nextRecord
+  };
+}
+
+export async function saveRoute(input: RouteEditorInput) {
+  if (input.coordinates.length < 2) {
+    throw new Error("Add at least two route points before saving.");
+  }
+
+  const currentCheckpoints = await getCheckpoints();
+  const cleanedCoordinates: RouteCoordinate[] = input.coordinates.map(([longitude, latitude]) => [
+    Number(longitude.toFixed(6)),
+    Number(latitude.toFixed(6))
+  ]);
+  const route = buildRouteFeature(cleanedCoordinates);
+  const checkpoints = projectCheckpointsOntoRoute(route, currentCheckpoints);
+
+  await persistRouteAndCheckpoints(route, checkpoints);
+
+  return {
+    ok: true,
+    route,
+    checkpoints
   };
 }

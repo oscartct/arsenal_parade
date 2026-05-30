@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { MapContainer, Marker, Polyline, TileLayer, Tooltip, useMapEvents } from "react-leaflet";
+import { CircleMarker, MapContainer, Marker, Polyline, TileLayer, Tooltip, useMapEvents } from "react-leaflet";
 import L from "leaflet";
 import type { RouteFeature } from "@/lib/types";
 
@@ -17,6 +17,11 @@ type TrackerMapProps = {
     longitude: number;
     label: string;
   } | null;
+  routeDraftPoints?: {
+    latitude: number;
+    longitude: number;
+  }[];
+  routeEditMode?: boolean;
   onMapClick?: (latitude: number, longitude: number) => void;
 };
 
@@ -49,11 +54,17 @@ export default function TrackerMap({
   estimatedPosition,
   estimatedPositionLabel,
   draftPosition = null,
+  routeDraftPoints = [],
+  routeEditMode = false,
   onMapClick
 }: TrackerMapProps) {
   const routeLatLngs = useMemo(
     () => route.geometry.coordinates.map(([longitude, latitude]) => [latitude, longitude] as [number, number]),
     [route.geometry.coordinates]
+  );
+  const routeDraftLatLngs = useMemo(
+    () => routeDraftPoints.map((point) => [point.latitude, point.longitude] as [number, number]),
+    [routeDraftPoints]
   );
 
   const liveMarkerPosition = useMemo<[number, number]>(
@@ -72,11 +83,40 @@ export default function TrackerMap({
       <Polyline
         positions={routeLatLngs}
         pathOptions={{
-          color: "#a98a2b",
-          weight: 8,
+          color: routeEditMode ? "rgba(169, 138, 43, 0.35)" : "#a98a2b",
+          weight: routeEditMode ? 6 : 8,
           opacity: 0.95
         }}
       />
+
+      {routeDraftLatLngs.length > 0 ? (
+        <Polyline
+          positions={routeDraftLatLngs}
+          pathOptions={{
+            color: "#d8192a",
+            weight: 6,
+            opacity: 0.92
+          }}
+        />
+      ) : null}
+
+      {routeDraftPoints.map((point, index) => (
+        <CircleMarker
+          key={`${point.latitude}-${point.longitude}-${index}`}
+          center={[point.latitude, point.longitude]}
+          radius={routeEditMode ? 6 : 4}
+          pathOptions={{
+            color: "#fff7f0",
+            weight: 2,
+            fillColor: routeEditMode ? "#d8192a" : "#8a101c",
+            fillOpacity: 1
+          }}
+        >
+          <Tooltip direction="top" offset={[0, -10]} opacity={1}>
+            Route point {index + 1}
+          </Tooltip>
+        </CircleMarker>
+      ))}
 
       <Marker position={liveMarkerPosition} icon={busIcon}>
         <Tooltip direction="top" offset={[0, -18]} opacity={1}>

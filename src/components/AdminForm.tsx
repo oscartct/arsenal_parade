@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import { snapPointToRoute } from "@/lib/geo";
-import type { AdminApiPayload, ConfidenceLevel, RouteSnap, SightingInput } from "@/lib/types";
+import type { AdminApiPayload, ConfidenceLevel, RouteEditorInput, RouteSnap, SightingInput } from "@/lib/types";
 
 const TrackerMap = dynamic(() => import("@/components/map/TrackerMap"), {
   ssr: false,
@@ -27,7 +27,8 @@ const confidenceOptions: ConfidenceLevel[] = ["low", "medium", "high"];
 export function AdminForm() {
   const [payload, setPayload] = useState<AdminApiPayload | null>(null);
   const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
+  const [sightingSubmitting, setSightingSubmitting] = useState(false);
+  const [routeSubmitting, setRouteSubmitting] = useState(false);
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
   const [adminPassword, setAdminPassword] = useState("");
@@ -35,6 +36,8 @@ export function AdminForm() {
   const [sourceNote, setSourceNote] = useState("Instagram story");
   const [confidence, setConfidence] = useState<ConfidenceLevel>("medium");
   const [draftSelection, setDraftSelection] = useState<RouteSnap | null>(null);
+  const [routeEditMode, setRouteEditMode] = useState(false);
+  const [routeDraftPoints, setRouteDraftPoints] = useState<{ latitude: number; longitude: number }[]>([]);
 
   const refreshAdminData = async () => {
     setLoading(true);
@@ -63,9 +66,16 @@ export function AdminForm() {
   }, []);
 
   const latestSummary = useMemo(() => payload?.snapshot.latestConfirmedSighting ?? null, [payload]);
+  const currentRoutePointCount = payload?.route.geometry.coordinates.length ?? 0;
 
   const handleMapClick = (latitude: number, longitude: number) => {
     if (!payload) {
+      return;
+    }
+
+    if (routeEditMode) {
+      setRouteDraftPoints((current) => [...current, { latitude, longitude }]);
+      setFeedback(null);
       return;
     }
 
@@ -81,7 +91,89 @@ export function AdminForm() {
     setFeedback(null);
   };
 
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+  const startRouteEdit = () => {
+    if (!payload) {
+      return;
+    }
+
+    setRouteDraftPoints(
+      payload.route.geometry.coordinates.map(([longitude, latitude]) => ({
+        latitude,
+        longitude
+      }))
+    );
+    setRouteEditMode(true);
+    setDraftSelection(null);
+    setFeedback(null);
+  };
+
+  const clearRouteDraft = () => {
+    setRouteDraftPoints([]);
+    setFeedback(null);
+  };
+
+  const undoRoutePoint = () => {
+    setRouteDraftPoints((current) => current.slice(0, -1));
+    setFeedback(null);
+  };
+
+  const cancelRouteEdit = () => {
+    setRouteEditMode(false);
+    setRouteDraftPoints([]);
+    setFeedback(null);
+  };
+
+  const handleSaveRoute = async () => {
+    if (routeDraftPoints.length < 2) {
+      setFeedback({
+        type: "error",
+        message: "Add at least two route points before saving."
+      });
+      return;
+    }
+
+    setRouteSubmitting(true);
+    setFeedback(null);
+
+    const body: RouteEditorInput & { adminPassword: string } = {
+      adminPassword,
+      coordinates: routeDraftPoints.map((point) => [point.longitude, point.latitude])
+    };
+
+    try {
+      const response = await fetch("/api/admin/route", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(body)
+      });
+
+      const data = (await response.json()) as { error?: string };
+
+      if (!response.ok) {
+        throw new Error(data.error ?? "Unable to save route.");
+      }
+
+      setFeedback({
+        type: "success",
+        message: "Route saved. The public map and admin tools are now using the newly drawn path."
+      });
+      setRouteEditMode(false);
+      setRouteDraftPoints([]);
+      setDraftSelection(null);
+      await refreshAdminData();
+    } catch (error) {
+      setFeedback({
+        type: "error",
+        message: error instanceof Error ? error.message : "Unable to save route."
+      });
+    } finally {
+      setRouteSubmitting(false);
+    }
+  };
+
+  const handleSaveSighting = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
     if (!draftSelection) {
@@ -92,7 +184,7 @@ export function AdminForm() {
       return;
     }
 
-    setSubmitting(true);
+    setSightingSubmitting(true);
     setFeedback(null);
 
     const body: SightingInput & { adminPassword: string } = {
@@ -131,7 +223,7 @@ export function AdminForm() {
         message: error instanceof Error ? error.message : "Unable to save sighting."
       });
     } finally {
-      setSubmitting(false);
+      setSightingSubmitting(false);
     }
   };
 
@@ -151,7 +243,7 @@ export function AdminForm() {
           estimatedPosition={payload.snapshot.estimatedPosition}
           estimatedPositionLabel={payload.snapshot.estimatedPositionLabel}
           draftPosition={
-            draftSelection
+            !routeEditMode && draftSelection
               ? {
                   latitude: draftSelection.latitude,
                   longitude: draftSelection.longitude,
@@ -159,6 +251,8 @@ export function AdminForm() {
                 }
               : null
           }
+          routeDraftPoints={routeEditMode ? routeDraftPoints : []}
+          routeEditMode={routeEditMode}
           onMapClick={handleMapClick}
         />
       </section>
@@ -166,8 +260,8 @@ export function AdminForm() {
       <section className="admin-card">
         <div className="admin-header">
           <div>
-            <p className="metric-label">Tester controls</p>
-            <h2 className="admin-title">Save a manual sighting</h2>
+            <p className="metric-label">Admin console</p>
+            <h2 className="admin-title">{routeEditMode ? "Route editor" : "Route and sighting tools"}</h2>
           </div>
           <button className="secondary-button" type="button" onClick={() => void refreshAdminData()} disabled={loading}>
             Refresh
@@ -184,27 +278,60 @@ export function AdminForm() {
           </div>
 
           <div className="metric">
+            <p className="metric-label">Route editor status</p>
+            <p className="metric-value">{routeEditMode ? "Editing route on live map" : "Locked to current saved route"}</p>
+            <p className="metric-subtle">
+              Saved route points: {currentRoutePointCount} • draft route points: {routeDraftPoints.length}
+            </p>
+          </div>
+
+          <div className="metric">
             <p className="metric-label">Draft sighting</p>
             <p className="metric-value">{draftSelection?.label ?? "Click the map to place a sighting"}</p>
             <p className="metric-subtle">
-              {draftSelection ? `${draftSelection.distanceAlongRouteKm.toFixed(2)} km along the route` : "The click will snap onto the route line automatically."}
+              {draftSelection && !routeEditMode
+                ? `${draftSelection.distanceAlongRouteKm.toFixed(2)} km along the route`
+                : "When route edit mode is off, map clicks create the next sighting draft."}
             </p>
           </div>
         </div>
 
-        <p className="helper-text">
-          Use this flow: click the route on the map, check the snapped draft point, set the sighting time,
-          then save. The public tracker uses that new point immediately and recalculates speed from the
-          previous confirmed point or the parade start.
-        </p>
-        {latestSummary ? (
+        <div className="editor-card">
+          <p className="metric-label">Clean reset route editor</p>
           <p className="helper-text">
-            Latest saved sighting: {latestSummary.checkpointName} at {formatDateTime(latestSummary.sightingTimeIso)}.
-            Your next sighting should be later than that time and further along the route.
+            Turn on route edit mode, then click directly on the visible map roads to redraw the parade line.
+            Save when the line sits correctly on the basemap.
           </p>
-        ) : null}
+          <div className="action-row">
+            {routeEditMode ? (
+              <>
+                <button className="secondary-button" type="button" onClick={undoRoutePoint} disabled={routeDraftPoints.length === 0 || routeSubmitting}>
+                  Undo last point
+                </button>
+                <button className="secondary-button" type="button" onClick={clearRouteDraft} disabled={routeSubmitting}>
+                  Clear draft
+                </button>
+                <button className="secondary-button" type="button" onClick={cancelRouteEdit} disabled={routeSubmitting}>
+                  Cancel edit
+                </button>
+                <button className="primary-button" type="button" onClick={() => void handleSaveRoute()} disabled={routeSubmitting}>
+                  {routeSubmitting ? "Saving route..." : "Save route"}
+                </button>
+              </>
+            ) : (
+              <button className="primary-button" type="button" onClick={startRouteEdit} disabled={loading}>
+                Edit route on map
+              </button>
+            )}
+          </div>
+          {routeEditMode ? (
+            <p className="helper-text">
+              Click the map in travel order from Holloway Road / Drayton Park start all the way back to the same finish point.
+            </p>
+          ) : null}
+        </div>
 
-        <form className="field-grid" onSubmit={handleSubmit}>
+        <form className="field-grid" onSubmit={handleSaveSighting}>
           <div className="field-row">
             <label htmlFor="admin-password">Admin password</label>
             <input
@@ -250,26 +377,27 @@ export function AdminForm() {
           </div>
 
           <div className="action-row">
-            <button className="primary-button" type="submit" disabled={submitting || loading}>
-              {submitting ? "Saving..." : "Save clicked sighting"}
+            <button
+              className="primary-button"
+              type="submit"
+              disabled={sightingSubmitting || loading || routeEditMode}
+            >
+              {sightingSubmitting ? "Saving..." : "Save clicked sighting"}
             </button>
           </div>
         </form>
 
-        {feedback ? <p className={`feedback ${feedback.type}`}>{feedback.message}</p> : null}
+        <p className="helper-text">
+          Sighting flow: keep route edit mode off, click the current route, then save the confirmed sighting time.
+        </p>
+        {latestSummary ? (
+          <p className="helper-text">
+            Latest saved sighting: {latestSummary.checkpointName} at {formatDateTime(latestSummary.sightingTimeIso)}.
+            Your next sighting should be later than that time and further along the route.
+          </p>
+        ) : null}
 
-        <div className="history-list">
-          {payload.sightings.slice().reverse().map((sighting) => (
-            <div className="history-item" key={sighting.id}>
-              <p>
-                <strong>{sighting.checkpointName}</strong> at {formatDateTime(sighting.sightingTimeIso)}
-              </p>
-              <p>
-                {sighting.sourceNote} • confidence {sighting.confidence} • speed {sighting.estimatedAverageSpeedKmh.toFixed(2)} km/h
-              </p>
-            </div>
-          ))}
-        </div>
+        {feedback ? <p className={`feedback ${feedback.type}`}>{feedback.message}</p> : null}
       </section>
     </div>
   );
