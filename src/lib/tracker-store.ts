@@ -1,6 +1,7 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { DEFAULT_SPEED_KMH, PARADE_START_ISO, ROUTE_POLL_INTERVAL_MS } from "@/lib/config";
+import { hasDatabaseConnection, readDatabaseState, writeDatabaseState } from "@/lib/database";
 import {
   blendEstimatedSpeed,
   buildTrackerSnapshot,
@@ -17,6 +18,7 @@ import type {
   SimulationState,
   SightingInput,
   SightingRecord,
+  StorageMode,
   TrackerApiPayload
 } from "@/lib/types";
 
@@ -25,9 +27,9 @@ type GlobalState = typeof globalThis & {
   __arsenalParadeCheckpoints?: Checkpoint[];
   __arsenalParadeSightings?: SightingRecord[];
   __arsenalParadeSimulation?: SimulationState;
-  __arsenalParadeRouteStorageMode?: "file" | "memory";
-  __arsenalParadeStorageMode?: "file" | "memory";
-  __arsenalParadeSimulationStorageMode?: "file" | "memory";
+  __arsenalParadeRouteStorageMode?: StorageMode;
+  __arsenalParadeStorageMode?: StorageMode;
+  __arsenalParadeSimulationStorageMode?: StorageMode;
 };
 
 const runtimeState = globalThis as GlobalState;
@@ -45,6 +47,113 @@ async function writeJsonFile(fileName: string, value: unknown) {
   await fs.writeFile(dataPath(fileName), `${JSON.stringify(value, null, 2)}\n`, "utf8");
 }
 
+async function loadStoredValue<T>({
+  key,
+  fileName,
+  cacheKey,
+  storageModeKey,
+  fallbackFactory
+}: {
+  key: string;
+  fileName: string;
+  cacheKey:
+    | "__arsenalParadeRoute"
+    | "__arsenalParadeCheckpoints"
+    | "__arsenalParadeSightings"
+    | "__arsenalParadeSimulation";
+  storageModeKey:
+    | "__arsenalParadeRouteStorageMode"
+    | "__arsenalParadeStorageMode"
+    | "__arsenalParadeSimulationStorageMode";
+  fallbackFactory?: () => T;
+}): Promise<T> {
+  if (hasDatabaseConnection()) {
+    const databaseValue = await readDatabaseState<T>(key);
+
+    if (databaseValue !== null) {
+      runtimeState[cacheKey] = databaseValue as never;
+      runtimeState[storageModeKey] = "db";
+      return databaseValue;
+    }
+
+    let seededValue: T;
+
+    try {
+      seededValue = await readJsonFile<T>(fileName);
+    } catch {
+      if (!fallbackFactory) {
+        throw new Error(`${key} data is unavailable.`);
+      }
+
+      seededValue = fallbackFactory();
+    }
+
+    await writeDatabaseState(key, seededValue);
+    runtimeState[cacheKey] = seededValue as never;
+    runtimeState[storageModeKey] = "db";
+    return seededValue;
+  }
+
+  try {
+    const fileValue = await readJsonFile<T>(fileName);
+    runtimeState[cacheKey] = fileValue as never;
+    runtimeState[storageModeKey] = "file";
+    return fileValue;
+  } catch {
+    const cachedValue = runtimeState[cacheKey];
+
+    if (cachedValue !== undefined) {
+      runtimeState[storageModeKey] = "memory";
+      return cachedValue as T;
+    }
+
+    if (fallbackFactory) {
+      const fallbackValue = fallbackFactory();
+      runtimeState[cacheKey] = fallbackValue as never;
+      runtimeState[storageModeKey] = "memory";
+      return fallbackValue;
+    }
+
+    throw new Error(`${key} data is unavailable.`);
+  }
+}
+
+async function persistStoredValue<T>({
+  key,
+  fileName,
+  value,
+  cacheKey,
+  storageModeKey
+}: {
+  key: string;
+  fileName: string;
+  value: T;
+  cacheKey:
+    | "__arsenalParadeRoute"
+    | "__arsenalParadeCheckpoints"
+    | "__arsenalParadeSightings"
+    | "__arsenalParadeSimulation";
+  storageModeKey:
+    | "__arsenalParadeRouteStorageMode"
+    | "__arsenalParadeStorageMode"
+    | "__arsenalParadeSimulationStorageMode";
+}) {
+  runtimeState[cacheKey] = value as never;
+
+  if (hasDatabaseConnection()) {
+    await writeDatabaseState(key, value);
+    runtimeState[storageModeKey] = "db";
+    return;
+  }
+
+  try {
+    await writeJsonFile(fileName, value);
+    runtimeState[storageModeKey] = "file";
+  } catch {
+    runtimeState[storageModeKey] = "memory";
+  }
+}
+
 function buildDefaultSimulationState(): SimulationState {
   return {
     isActive: false,
@@ -55,69 +164,45 @@ function buildDefaultSimulationState(): SimulationState {
 }
 
 export async function getRoute(): Promise<RouteFeature> {
-  try {
-    const route = await readJsonFile<RouteFeature>("route.geojson");
-    runtimeState.__arsenalParadeRoute = route;
-    runtimeState.__arsenalParadeRouteStorageMode = "file";
-    return route;
-  } catch {
-    if (runtimeState.__arsenalParadeRoute) {
-      runtimeState.__arsenalParadeRouteStorageMode = "memory";
-      return runtimeState.__arsenalParadeRoute;
-    }
-
-    throw new Error("Route data is unavailable.");
-  }
+  return loadStoredValue<RouteFeature>({
+    key: "route",
+    fileName: "route.geojson",
+    cacheKey: "__arsenalParadeRoute",
+    storageModeKey: "__arsenalParadeRouteStorageMode"
+  });
 }
 
 export async function getCheckpoints(): Promise<Checkpoint[]> {
-  try {
-    const checkpoints = await readJsonFile<Checkpoint[]>("checkpoints.json");
-    const sorted = checkpoints.sort((left, right) => left.distanceAlongRouteKm - right.distanceAlongRouteKm);
-    runtimeState.__arsenalParadeCheckpoints = sorted;
-    runtimeState.__arsenalParadeRouteStorageMode = "file";
-    return sorted;
-  } catch {
-    if (runtimeState.__arsenalParadeCheckpoints) {
-      runtimeState.__arsenalParadeRouteStorageMode = "memory";
-      return runtimeState.__arsenalParadeCheckpoints;
-    }
+  const checkpoints = await loadStoredValue<Checkpoint[]>({
+    key: "checkpoints",
+    fileName: "checkpoints.json",
+    cacheKey: "__arsenalParadeCheckpoints",
+    storageModeKey: "__arsenalParadeRouteStorageMode"
+  });
 
-    throw new Error("Checkpoint data is unavailable.");
-  }
-}
-
-async function loadSightingsFromDisk() {
-  const sightings = await readJsonFile<SightingRecord[]>("sightings.json");
-  runtimeState.__arsenalParadeStorageMode = "file";
-  runtimeState.__arsenalParadeSightings = sightings;
-  return sightings;
+  const sorted = [...checkpoints].sort((left, right) => left.distanceAlongRouteKm - right.distanceAlongRouteKm);
+  runtimeState.__arsenalParadeCheckpoints = sorted;
+  return sorted;
 }
 
 export async function getSightings() {
-  try {
-    return await loadSightingsFromDisk();
-  } catch {
-    if (runtimeState.__arsenalParadeSightings) {
-      runtimeState.__arsenalParadeStorageMode = "memory";
-      return runtimeState.__arsenalParadeSightings;
-    }
-
-    runtimeState.__arsenalParadeStorageMode = "memory";
-    runtimeState.__arsenalParadeSightings = [];
-    return [];
-  }
+  return loadStoredValue<SightingRecord[]>({
+    key: "sightings",
+    fileName: "sightings.json",
+    cacheKey: "__arsenalParadeSightings",
+    storageModeKey: "__arsenalParadeStorageMode",
+    fallbackFactory: () => []
+  });
 }
 
 async function persistSightings(sightings: SightingRecord[]) {
-  runtimeState.__arsenalParadeSightings = sightings;
-
-  try {
-    await writeJsonFile("sightings.json", sightings);
-    runtimeState.__arsenalParadeStorageMode = "file";
-  } catch {
-    runtimeState.__arsenalParadeStorageMode = "memory";
-  }
+  await persistStoredValue({
+    key: "sightings",
+    fileName: "sightings.json",
+    value: sightings,
+    cacheKey: "__arsenalParadeSightings",
+    storageModeKey: "__arsenalParadeStorageMode"
+  });
 }
 
 export async function clearSightings() {
@@ -126,46 +211,42 @@ export async function clearSightings() {
 }
 
 export async function getSimulationState() {
-  try {
-    const simulation = await readJsonFile<SimulationState>("simulation.json");
-    runtimeState.__arsenalParadeSimulation = simulation;
-    runtimeState.__arsenalParadeSimulationStorageMode = "file";
-    return simulation;
-  } catch {
-    if (runtimeState.__arsenalParadeSimulation) {
-      runtimeState.__arsenalParadeSimulationStorageMode = "memory";
-      return runtimeState.__arsenalParadeSimulation;
-    }
-
-    const fallback = buildDefaultSimulationState();
-    runtimeState.__arsenalParadeSimulation = fallback;
-    runtimeState.__arsenalParadeSimulationStorageMode = "memory";
-    return fallback;
-  }
+  return loadStoredValue<SimulationState>({
+    key: "simulation",
+    fileName: "simulation.json",
+    cacheKey: "__arsenalParadeSimulation",
+    storageModeKey: "__arsenalParadeSimulationStorageMode",
+    fallbackFactory: buildDefaultSimulationState
+  });
 }
 
 async function persistSimulationState(simulation: SimulationState) {
-  runtimeState.__arsenalParadeSimulation = simulation;
-
-  try {
-    await writeJsonFile("simulation.json", simulation);
-    runtimeState.__arsenalParadeSimulationStorageMode = "file";
-  } catch {
-    runtimeState.__arsenalParadeSimulationStorageMode = "memory";
-  }
+  await persistStoredValue({
+    key: "simulation",
+    fileName: "simulation.json",
+    value: simulation,
+    cacheKey: "__arsenalParadeSimulation",
+    storageModeKey: "__arsenalParadeSimulationStorageMode"
+  });
 }
 
 async function persistRouteAndCheckpoints(route: RouteFeature, checkpoints: Checkpoint[]) {
-  runtimeState.__arsenalParadeRoute = route;
-  runtimeState.__arsenalParadeCheckpoints = checkpoints;
-
-  try {
-    await writeJsonFile("route.geojson", route);
-    await writeJsonFile("checkpoints.json", checkpoints);
-    runtimeState.__arsenalParadeRouteStorageMode = "file";
-  } catch {
-    runtimeState.__arsenalParadeRouteStorageMode = "memory";
-  }
+  await Promise.all([
+    persistStoredValue({
+      key: "route",
+      fileName: "route.geojson",
+      value: route,
+      cacheKey: "__arsenalParadeRoute",
+      storageModeKey: "__arsenalParadeRouteStorageMode"
+    }),
+    persistStoredValue({
+      key: "checkpoints",
+      fileName: "checkpoints.json",
+      value: checkpoints,
+      cacheKey: "__arsenalParadeCheckpoints",
+      storageModeKey: "__arsenalParadeRouteStorageMode"
+    })
+  ]);
 }
 
 function buildSyntheticStartSighting(checkpoints: Checkpoint[]): SightingRecord {

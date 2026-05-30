@@ -1,5 +1,7 @@
 export type ConfidenceLevel = "low" | "medium" | "high";
 
+export type StorageMode = "db" | "file" | "memory";
+
 export type Checkpoint = {
   id: string;
   name: string;
@@ -73,7 +75,7 @@ export type TrackerSnapshot = {
   estimatedPositionLabel: string;
   confidenceLevel: ConfidenceLevel;
   confidenceReason: string;
-  storageMode: "file" | "memory";
+  storageMode: StorageMode;
 };
 
 export type TrackerApiPayload = {

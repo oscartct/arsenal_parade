@@ -1,6 +1,6 @@
 import { DEFAULT_SPEED_KMH, PARADE_START_ISO } from "@/lib/config";
 import { clampNumber, getRouteLengthKm, interpolatePositionAlongRoute, roundTo } from "@/lib/geo";
-import type { Checkpoint, ConfidenceLevel, RouteFeature, SightingRecord, TrackerSnapshot } from "@/lib/types";
+import type { Checkpoint, ConfidenceLevel, RouteFeature, SightingRecord, StorageMode, TrackerSnapshot } from "@/lib/types";
 
 function buildStartAssumption(checkpoints: Checkpoint[]): SightingRecord {
   const startCheckpoint = checkpoints[0];
@@ -147,7 +147,7 @@ export function buildTrackerSnapshot({
   checkpoints: Checkpoint[];
   actualSightings: SightingRecord[];
   now: Date;
-  storageMode: "file" | "memory";
+  storageMode: StorageMode;
 }): TrackerSnapshot {
   const routeLengthKm = getRouteLengthKm(route);
   const baselineSighting = buildStartAssumption(checkpoints);

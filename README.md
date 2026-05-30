@@ -1,6 +1,6 @@
 # Arsenal Parade Tracker MVP
 
-Unofficial Arsenal parade tracker built with Next.js, React, Leaflet, GeoJSON, and a small JSON-backed data layer.
+Unofficial Arsenal parade tracker built with Next.js, React, Leaflet, GeoJSON, and a small persistence layer that can use local JSON files or Postgres.
 
 ## What This MVP Does
 
@@ -14,9 +14,8 @@ Unofficial Arsenal parade tracker built with Next.js, React, Leaflet, GeoJSON, a
 - The route in `src/data/route.geojson` is a **placeholder trace** based on the PDF in this repo.
 - Checkpoint distances in `src/data/checkpoints.json` are approximate and should be manually refined.
 - The app does **not** use live GPS.
-- JSON file writes are acceptable for local development, but **not durable on Railway**.
-  Railway containers can restart or redeploy, which means file-backed updates may be lost.
-- The code is structured so `src/lib/tracker-store.ts` can later be swapped to Supabase or Postgres.
+- Local JSON file writes are acceptable for development, but **not durable on Railway**.
+- In production, set `DATABASE_URL` so route edits, sightings, and simulation state persist in Postgres across redeploys.
 
 ## Local Setup
 
@@ -136,14 +135,14 @@ git push -u origin main
    - `PARADE_START_ISO`
    - `DEFAULT_SPEED_KMH`
    - `ROUTE_POLL_INTERVAL_MS`
+   - `DATABASE_URL`
 5. Railway can use the default scripts:
    - Build: `npm run build`
    - Start: `npm run start`
 
-## Recommended Next Upgrade
+## Railway Postgres Persistence
 
-When you want persistence that survives restarts and redeploys:
-
-- replace the JSON/file logic in `src/lib/tracker-store.ts`
-- keep the API routes and UI unchanged
-- store sightings in Supabase or Postgres
+- If `DATABASE_URL` is present, the app automatically stores `route`, `checkpoints`, `sightings`, and `simulation` in Postgres.
+- On first boot with Postgres enabled, the app seeds those values from the repo JSON files if the database is empty.
+- After that, admin route edits and sightings persist in the database and survive redeploys.
+- You can later replace the simple `app_state` JSON storage with a more structured schema if you want audit history or richer admin tooling.
