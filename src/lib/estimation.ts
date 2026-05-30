@@ -16,11 +16,14 @@ function buildStartAssumption(checkpoints: Checkpoint[]): SightingRecord {
     sourceNote: "Using the scheduled parade start as the initial estimate.",
     confidence: "medium",
     estimatedAverageSpeedKmh: DEFAULT_SPEED_KMH,
+    observedSegmentSpeedKmh: null,
+    distanceFromPreviousKm: 0,
+    minutesFromPrevious: 0,
     createdAtIso: PARADE_START_ISO
   };
 }
 
-export function calculateSpeedFromSightings(previous: SightingRecord, latest: SightingRecord) {
+export function calculateSegmentMetrics(previous: SightingRecord, latest: SightingRecord) {
   const elapsedHours =
     (new Date(latest.sightingTimeIso).getTime() - new Date(previous.sightingTimeIso).getTime()) / 3_600_000;
 
@@ -34,7 +37,51 @@ export function calculateSpeedFromSightings(previous: SightingRecord, latest: Si
     throw new Error("The new checkpoint must be at or ahead of the previous checkpoint along the route.");
   }
 
-  return roundTo(clampNumber(distanceDeltaKm / elapsedHours, 0, 20), 2);
+  return {
+    elapsedHours,
+    elapsedMinutes: roundTo(elapsedHours * 60, 1),
+    distanceDeltaKm: roundTo(distanceDeltaKm, 3),
+    observedSpeedKmh: roundTo(clampNumber(distanceDeltaKm / elapsedHours, 0, 20), 2)
+  };
+}
+
+export function blendEstimatedSpeed({
+  previousEstimatedSpeedKmh,
+  observedSpeedKmh,
+  confidence,
+  distanceDeltaKm,
+  elapsedHours,
+  isFirstConfirmedSighting
+}: {
+  previousEstimatedSpeedKmh: number;
+  observedSpeedKmh: number;
+  confidence: ConfidenceLevel;
+  distanceDeltaKm: number;
+  elapsedHours: number;
+  isFirstConfirmedSighting: boolean;
+}) {
+  const baseWeight = {
+    low: 0.22,
+    medium: 0.35,
+    high: 0.5
+  }[confidence];
+  const distanceBoost = clampNumber(distanceDeltaKm / 3, 0, 0.18);
+  const timeBoost = clampNumber(elapsedHours / 2, 0, 0.1);
+  const firstSightingBoost = isFirstConfirmedSighting ? 0.12 : 0;
+  const observationWeight = clampNumber(baseWeight + distanceBoost + timeBoost + firstSightingBoost, 0.2, 0.82);
+
+  return roundTo(
+    clampNumber(
+      previousEstimatedSpeedKmh * (1 - observationWeight) + observedSpeedKmh * observationWeight,
+      0,
+      20
+    ),
+    2
+  );
+}
+
+export function shouldUpdateEstimatedSpeed(distanceDeltaKm: number, elapsedMinutes: number) {
+  return distanceDeltaKm >= 0.15 && elapsedMinutes >= 3;
 }
 
 function deriveConfidence(confidence: ConfidenceLevel, ageMinutes: number) {
@@ -137,6 +184,9 @@ export function buildTrackerSnapshot({
     latestConfirmedSighting,
     latestSourceNote: latestConfirmedSighting?.sourceNote ?? baselineSighting.sourceNote,
     estimatedAverageSpeedKmh,
+    latestObservedSegmentSpeedKmh: latestConfirmedSighting?.observedSegmentSpeedKmh ?? null,
+    latestSegmentDistanceKm: latestConfirmedSighting?.distanceFromPreviousKm ?? null,
+    latestSegmentMinutes: latestConfirmedSighting?.minutesFromPrevious ?? null,
     estimatedDistanceKm,
     estimatedPosition,
     estimatedPositionLabel: describeEstimatedPosition(estimatedDistanceKm, checkpoints, routeLengthKm),

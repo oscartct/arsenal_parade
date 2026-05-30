@@ -29,10 +29,12 @@ export function AdminForm() {
   const [loading, setLoading] = useState(true);
   const [sightingSubmitting, setSightingSubmitting] = useState(false);
   const [routeSubmitting, setRouteSubmitting] = useState(false);
+  const [simulationSubmitting, setSimulationSubmitting] = useState(false);
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
   const [adminPassword, setAdminPassword] = useState("");
   const [sightingTimeLocal, setSightingTimeLocal] = useState(toDatetimeLocalValue(new Date()));
+  const [useCurrentTrackerTime, setUseCurrentTrackerTime] = useState(true);
   const [sourceNote, setSourceNote] = useState("Instagram story");
   const [confidence, setConfidence] = useState<ConfidenceLevel>("medium");
   const [draftSelection, setDraftSelection] = useState<RouteSnap | null>(null);
@@ -67,6 +69,9 @@ export function AdminForm() {
 
   const latestSummary = useMemo(() => payload?.snapshot.latestConfirmedSighting ?? null, [payload]);
   const currentRoutePointCount = payload?.route.geometry.coordinates.length ?? 0;
+  const effectiveNowLabel = payload
+    ? formatDateTime(payload.simulation.effectiveNowIso)
+    : "Loading...";
 
   const handleMapClick = (latitude: number, longitude: number) => {
     if (!payload) {
@@ -191,10 +196,13 @@ export function AdminForm() {
       adminPassword,
       latitude: draftSelection.latitude,
       longitude: draftSelection.longitude,
-      sightingTimeIso: new Date(sightingTimeLocal).toISOString(),
       sourceNote,
       confidence
     };
+
+    if (!useCurrentTrackerTime) {
+      body.sightingTimeIso = new Date(sightingTimeLocal).toISOString();
+    }
 
     try {
       const response = await fetch("/api/admin/sighting", {
@@ -224,6 +232,48 @@ export function AdminForm() {
       });
     } finally {
       setSightingSubmitting(false);
+    }
+  };
+
+  const handleSimulationAction = async (action: "start" | "stop") => {
+    setSimulationSubmitting(true);
+    setFeedback(null);
+
+    try {
+      const response = await fetch("/api/admin/simulation", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          adminPassword,
+          action,
+          simulatedStartIso: payload?.snapshot.paradeStartIso,
+          resetSightings: action === "start"
+        })
+      });
+
+      const data = (await response.json()) as { error?: string };
+
+      if (!response.ok) {
+        throw new Error(data.error ?? "Unable to update simulation state.");
+      }
+
+      setFeedback({
+        type: "success",
+        message:
+          action === "start"
+            ? "Fresh simulation started. The tracker now treats the current moment as parade time and previous sightings were cleared."
+            : "Simulation stopped. The tracker is back on real time."
+      });
+      await refreshAdminData();
+    } catch (error) {
+      setFeedback({
+        type: "error",
+        message: error instanceof Error ? error.message : "Unable to update simulation state."
+      });
+    } finally {
+      setSimulationSubmitting(false);
     }
   };
 
@@ -278,6 +328,36 @@ export function AdminForm() {
           </div>
 
           <div className="metric">
+            <p className="metric-label">Tracker clock</p>
+            <p className="metric-value">{payload.simulation.isActive ? "Simulation active" : "Real time"}</p>
+            <p className="metric-subtle">
+              Effective tracker time: {effectiveNowLabel}
+            </p>
+          </div>
+
+          <div className="metric">
+            <p className="metric-label">Estimated bus speed</p>
+            <p className="metric-value">{payload.snapshot.estimatedAverageSpeedKmh.toFixed(2)} km/h</p>
+            <p className="metric-subtle">
+              {payload.snapshot.latestObservedSegmentSpeedKmh !== null
+                ? `Latest raw segment speed: ${payload.snapshot.latestObservedSegmentSpeedKmh.toFixed(2)} km/h`
+                : "Using the initial fallback speed until the first confirmed sighting."}
+            </p>
+          </div>
+
+          <div className="metric">
+            <p className="metric-label">Last measured segment</p>
+            <p className="metric-value">
+              {payload.snapshot.latestSegmentDistanceKm !== null && payload.snapshot.latestSegmentMinutes !== null
+                ? `${payload.snapshot.latestSegmentDistanceKm.toFixed(2)} km in ${payload.snapshot.latestSegmentMinutes.toFixed(0)} min`
+                : "No measured segment yet"}
+            </p>
+            <p className="metric-subtle">
+              Distance is measured along the saved route line, not as straight-line click distance.
+            </p>
+          </div>
+
+          <div className="metric">
             <p className="metric-label">Route editor status</p>
             <p className="metric-value">{routeEditMode ? "Editing route on live map" : "Locked to current saved route"}</p>
             <p className="metric-subtle">
@@ -294,6 +374,34 @@ export function AdminForm() {
                 : "When route edit mode is off, map clicks create the next sighting draft."}
             </p>
           </div>
+        </div>
+
+        <div className="editor-card">
+          <p className="metric-label">Simulation controls</p>
+          <p className="helper-text">
+            Start simulation to treat the current moment as the parade start time, then let the tracker advance in real time from there.
+          </p>
+          <div className="action-row">
+            <button
+              className="secondary-button"
+              type="button"
+              onClick={() => void handleSimulationAction("start")}
+              disabled={simulationSubmitting}
+            >
+              {simulationSubmitting && !payload.simulation.isActive ? "Starting..." : "Start fresh simulation now"}
+            </button>
+            <button
+              className="secondary-button"
+              type="button"
+              onClick={() => void handleSimulationAction("stop")}
+              disabled={simulationSubmitting || !payload.simulation.isActive}
+            >
+              {simulationSubmitting && payload.simulation.isActive ? "Stopping..." : "Stop simulation"}
+            </button>
+          </div>
+          <p className="helper-text">
+            Parade start target: {formatDateTime(payload.snapshot.paradeStartIso)}
+          </p>
         </div>
 
         <div className="editor-card">
@@ -344,15 +452,37 @@ export function AdminForm() {
           </div>
 
           <div className="field-row">
-            <label htmlFor="sighting-time">Sighting time</label>
-            <input
-              id="sighting-time"
-              type="datetime-local"
-              value={sightingTimeLocal}
-              onChange={(event) => setSightingTimeLocal(event.target.value)}
-              required
-            />
+            <label htmlFor="use-current-time">Timing mode</label>
+            <select
+              id="use-current-time"
+              value={useCurrentTrackerTime ? "live" : "manual"}
+              onChange={(event) => setUseCurrentTrackerTime(event.target.value === "live")}
+            >
+              <option value="live">Use current tracker time</option>
+              <option value="manual">Enter manual time</option>
+            </select>
           </div>
+
+          {useCurrentTrackerTime ? (
+            <div className="metric">
+              <p className="metric-label">Sighting time</p>
+              <p className="metric-value">{effectiveNowLabel}</p>
+              <p className="metric-subtle">
+                This click will be treated as a live sighting at the tracker’s current effective time.
+              </p>
+            </div>
+          ) : (
+            <div className="field-row">
+              <label htmlFor="sighting-time">Manual sighting time</label>
+              <input
+                id="sighting-time"
+                type="datetime-local"
+                value={sightingTimeLocal}
+                onChange={(event) => setSightingTimeLocal(event.target.value)}
+                required
+              />
+            </div>
+          )}
 
           <div className="field-row">
             <label htmlFor="source-note">Source note</label>
@@ -388,7 +518,12 @@ export function AdminForm() {
         </form>
 
         <p className="helper-text">
-          Sighting flow: keep route edit mode off, click the current route, then save the confirmed sighting time.
+          Sighting flow: keep route edit mode off, click the current route, then save the confirmed sighting.
+        </p>
+        <p className="helper-text">
+          Speed model: each new sighting measures distance along the saved route between the last two confirmed
+          points, calculates a raw segment speed, then blends that into the current estimate so one odd update
+          does not swing the bus speed too hard.
         </p>
         {latestSummary ? (
           <p className="helper-text">

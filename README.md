@@ -6,7 +6,7 @@ Unofficial Arsenal parade tracker built with Next.js, React, Leaflet, GeoJSON, a
 
 - Displays a simple public tracker page with the route and estimated convoy/front-bus marker.
 - Lets you click on the route map from `/admin` to place and save a manual sighting.
-- Recalculates the estimated average speed after each sighting update.
+- Recalculates a weighted estimated speed after each sighting update.
 - Keeps the public page lightweight while the admin page handles testing and updates.
 
 ## Important Limitations
@@ -98,6 +98,13 @@ Then it:
 - clamps the value so the marker cannot go past the end of the route
 - interpolates a latitude/longitude along the route line
 - derives a simple position label such as "Near X" or "Between X and Y"
+
+Speed behaviour:
+
+- Before the first confirmed sighting, the tracker uses `DEFAULT_SPEED_KMH`
+- Each new sighting measures the route distance from the previous confirmed point
+- It calculates a raw segment speed from that measured route distance and elapsed time
+- It then blends that raw segment speed into the current estimate so one noisy update does not over-correct the bus speed
 
 ## Admin Authentication
 

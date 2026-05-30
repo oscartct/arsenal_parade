@@ -27,11 +27,11 @@ export async function POST(request: NextRequest) {
     const checkpointId = typeof body.checkpointId === "string" ? body.checkpointId : undefined;
     const latitude = typeof body.latitude === "number" ? body.latitude : undefined;
     const longitude = typeof body.longitude === "number" ? body.longitude : undefined;
-    const sightingTimeIso = typeof body.sightingTimeIso === "string" ? body.sightingTimeIso : "";
+    const sightingTimeIso = typeof body.sightingTimeIso === "string" ? body.sightingTimeIso : undefined;
     const sourceNote = typeof body.sourceNote === "string" ? body.sourceNote : "";
     const confidence = typeof body.confidence === "string" ? body.confidence : "";
 
-    if ((!checkpointId && (latitude === undefined || longitude === undefined)) || !sightingTimeIso || !sourceNote.trim() || !confidence) {
+    if ((!checkpointId && (latitude === undefined || longitude === undefined)) || !sourceNote.trim() || !confidence) {
       return NextResponse.json({ error: "Missing required fields." }, { status: 400 });
     }
 

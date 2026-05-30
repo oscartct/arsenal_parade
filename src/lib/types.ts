@@ -19,6 +19,9 @@ export type SightingRecord = {
   sourceNote: string;
   confidence: ConfidenceLevel;
   estimatedAverageSpeedKmh: number;
+  observedSegmentSpeedKmh: number | null;
+  distanceFromPreviousKm: number;
+  minutesFromPrevious: number;
   createdAtIso: string;
 };
 
@@ -26,7 +29,7 @@ export type SightingInput = {
   checkpointId?: string;
   latitude?: number;
   longitude?: number;
-  sightingTimeIso: string;
+  sightingTimeIso?: string;
   sourceNote: string;
   confidence: ConfidenceLevel;
 };
@@ -45,6 +48,13 @@ export type RouteFeature = {
 
 export type RouteCoordinate = [number, number];
 
+export type SimulationState = {
+  isActive: boolean;
+  offsetMs: number;
+  anchorRealIso: string | null;
+  anchorSimulatedIso: string | null;
+};
+
 export type TrackerSnapshot = {
   paradeStartIso: string;
   evaluatedAtIso: string;
@@ -52,6 +62,9 @@ export type TrackerSnapshot = {
   latestConfirmedSighting: SightingRecord | null;
   latestSourceNote: string;
   estimatedAverageSpeedKmh: number;
+  latestObservedSegmentSpeedKmh: number | null;
+  latestSegmentDistanceKm: number | null;
+  latestSegmentMinutes: number | null;
   estimatedDistanceKm: number;
   estimatedPosition: {
     latitude: number;
@@ -67,6 +80,9 @@ export type TrackerApiPayload = {
   route: RouteFeature;
   checkpoints: Checkpoint[];
   snapshot: TrackerSnapshot;
+  simulation: SimulationState & {
+    effectiveNowIso: string;
+  };
   config: {
     routePollIntervalMs: number;
   };
@@ -77,6 +93,9 @@ export type AdminApiPayload = {
   checkpoints: Checkpoint[];
   sightings: SightingRecord[];
   snapshot: TrackerSnapshot;
+  simulation: SimulationState & {
+    effectiveNowIso: string;
+  };
 };
 
 export type RouteSnap = {
