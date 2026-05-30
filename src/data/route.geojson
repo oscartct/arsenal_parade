@@ -1,0 +1,27 @@
+{
+  "type": "Feature",
+  "properties": {
+    "name": "Placeholder Arsenal Parade Route",
+    "note": "Approximate manual trace based on the PDF map. Edit these coordinates to better match the final route."
+  },
+  "geometry": {
+    "type": "LineString",
+    "coordinates": [
+      [-0.1058, 51.5321],
+      [-0.1048, 51.538],
+      [-0.1035, 51.5438],
+      [-0.1122, 51.5498],
+      [-0.1198, 51.5546],
+      [-0.1072, 51.5596],
+      [-0.0994, 51.5638],
+      [-0.0917, 51.5568],
+      [-0.0839, 51.5581],
+      [-0.0785, 51.5509],
+      [-0.0788, 51.5412],
+      [-0.0929, 51.5384],
+      [-0.0978, 51.5367],
+      [-0.1007, 51.5351],
+      [-0.1058, 51.5321]
+    ]
+  }
+}
