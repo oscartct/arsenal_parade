@@ -11,97 +11,97 @@
     "name": "Holloway Road",
     "latitude": 51.553,
     "longitude": -0.1134,
-    "distanceAlongRouteKm": 0.32
+    "distanceAlongRouteKm": 0.319
   },
   {
     "id": "seven-sisters-road",
     "name": "Seven Sisters Road",
     "latitude": 51.5579,
     "longitude": -0.1096,
-    "distanceAlongRouteKm": 1.09
+    "distanceAlongRouteKm": 1.147
   },
   {
     "id": "blackstock-road",
     "name": "Blackstock Road",
     "latitude": 51.5607,
     "longitude": -0.1016,
-    "distanceAlongRouteKm": 1.78
+    "distanceAlongRouteKm": 1.848
   },
   {
     "id": "mountgrove-road",
     "name": "Mount Grove Road",
     "latitude": 51.5582,
     "longitude": -0.0888,
-    "distanceAlongRouteKm": 2.7
+    "distanceAlongRouteKm": 2.771
   },
   {
     "id": "green-lanes",
     "name": "Green Lanes",
     "latitude": 51.5512,
     "longitude": -0.0794,
-    "distanceAlongRouteKm": 3.86
+    "distanceAlongRouteKm": 3.976
   },
   {
     "id": "petherton-road",
     "name": "Petherton Road",
     "latitude": 51.5465,
     "longitude": -0.0788,
-    "distanceAlongRouteKm": 4.38
+    "distanceAlongRouteKm": 4.5
   },
   {
     "id": "beresford-road",
     "name": "Beresford Road",
     "latitude": 51.5438,
     "longitude": -0.0749,
-    "distanceAlongRouteKm": 4.91
+    "distanceAlongRouteKm": 5.033
   },
   {
     "id": "newington-green-road",
     "name": "Newington Green Road",
     "latitude": 51.5418,
     "longitude": -0.08,
-    "distanceAlongRouteKm": 5.33
+    "distanceAlongRouteKm": 5.572
   },
   {
     "id": "essex-road",
     "name": "Essex Road",
     "latitude": 51.5372,
     "longitude": -0.0918,
-    "distanceAlongRouteKm": 6.29
+    "distanceAlongRouteKm": 6.531
   },
   {
     "id": "angel",
     "name": "Angel",
     "latitude": 51.53215,
     "longitude": -0.1058,
-    "distanceAlongRouteKm": 7.42
+    "distanceAlongRouteKm": 7.675
   },
   {
     "id": "upper-street",
     "name": "Upper Street",
     "latitude": 51.5398,
     "longitude": -0.1039,
-    "distanceAlongRouteKm": 8.28
+    "distanceAlongRouteKm": 8.535
   },
   {
     "id": "highbury-islington",
     "name": "Highbury & Islington",
     "latitude": 51.5462,
     "longitude": -0.1033,
-    "distanceAlongRouteKm": 8.99
+    "distanceAlongRouteKm": 9.248
   },
   {
     "id": "holloway-road-return",
     "name": "Holloway Road Return",
     "latitude": 51.5492,
     "longitude": -0.1074,
-    "distanceAlongRouteKm": 9.43
+    "distanceAlongRouteKm": 9.686
   },
   {
     "id": "drayton-park-finish",
     "name": "Holloway Road / Drayton Park Finish",
     "latitude": 51.55085,
     "longitude": -0.11035,
-    "distanceAlongRouteKm": 9.71
+    "distanceAlongRouteKm": 9.96
   }
 ]
