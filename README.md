@@ -140,6 +140,8 @@ git push -u origin main
    - Build: `npm run build`
    - Start: `npm run start`
 
+- A good live default for `ROUTE_POLL_INTERVAL_MS` is `5000` so the public bus position refreshes roughly every 5 seconds without manual reloads.
+
 ## Railway Postgres Persistence
 
 - If `DATABASE_URL` is present, the app automatically stores `route`, `checkpoints`, `sightings`, and `simulation` in Postgres.

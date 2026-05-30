@@ -26,10 +26,10 @@ type TrackerMapProps = {
 };
 
 const busIcon = L.divIcon({
-  html: '<div class="bus-pin" aria-hidden="true">🚌</div>',
+  html: '<div class="bus-pin" aria-hidden="true"><img src="/arsenal-bus.png" alt="" /></div>',
   className: "",
-  iconSize: [36, 36],
-  iconAnchor: [18, 18]
+  iconSize: [76, 56],
+  iconAnchor: [38, 28]
 });
 
 const draftIcon = L.divIcon({
@@ -83,7 +83,7 @@ export default function TrackerMap({
       <Polyline
         positions={routeLatLngs}
         pathOptions={{
-          color: routeEditMode ? "rgba(169, 138, 43, 0.35)" : "#a98a2b",
+          color: routeEditMode ? "rgba(216, 25, 42, 0.35)" : "#d8192a",
           weight: routeEditMode ? 6 : 8,
           opacity: 0.95
         }}
