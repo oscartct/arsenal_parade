@@ -24,12 +24,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Incorrect admin password." }, { status: 401 });
     }
 
-    const checkpointId = typeof body.checkpointId === "string" ? body.checkpointId : "";
+    const checkpointId = typeof body.checkpointId === "string" ? body.checkpointId : undefined;
+    const latitude = typeof body.latitude === "number" ? body.latitude : undefined;
+    const longitude = typeof body.longitude === "number" ? body.longitude : undefined;
     const sightingTimeIso = typeof body.sightingTimeIso === "string" ? body.sightingTimeIso : "";
     const sourceNote = typeof body.sourceNote === "string" ? body.sourceNote : "";
     const confidence = typeof body.confidence === "string" ? body.confidence : "";
 
-    if (!checkpointId || !sightingTimeIso || !sourceNote.trim() || !confidence) {
+    if ((!checkpointId && (latitude === undefined || longitude === undefined)) || !sightingTimeIso || !sourceNote.trim() || !confidence) {
       return NextResponse.json({ error: "Missing required fields." }, { status: 400 });
     }
 
@@ -39,6 +41,8 @@ export async function POST(request: NextRequest) {
 
     const result = await saveSighting({
       checkpointId,
+      latitude,
+      longitude,
       sightingTimeIso,
       sourceNote,
       confidence

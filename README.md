@@ -4,11 +4,10 @@ Unofficial Arsenal parade tracker built with Next.js, React, Leaflet, GeoJSON, a
 
 ## What This MVP Does
 
-- Displays an approximate parade route on a Leaflet map.
-- Shows an estimated convoy/front-bus marker moving along the route.
-- Lets you manually save public sightings from `/admin`.
+- Displays a simple public tracker page with the route and estimated convoy/front-bus marker.
+- Lets you click on the route map from `/admin` to place and save a manual sighting.
 - Recalculates the estimated average speed after each sighting update.
-- Supports quick simulation using a custom "current time" override on the public page.
+- Keeps the public page lightweight while the admin page handles testing and updates.
 
 ## Important Limitations
 
@@ -42,16 +41,16 @@ npm run dev
 4. Open:
 
 - Public tracker: `http://localhost:3000`
-- Admin page: `http://localhost:3000/admin`
+- Admin tester: `http://localhost:3000/admin`
 
-## Simulation Tips
+## Testing Updates
 
-- The default parade start time is `2026-05-31T14:00:00+01:00`.
-- On the public page you can optionally set a custom simulation time.
-- Example:
-  `2026-05-31T14:00`
-- You can also use the URL directly:
-  `http://localhost:3000/?now=2026-05-31T14:15:00+01:00`
+- Open `/admin`
+- Click on the map where the latest confirmed bus/convoy sighting was seen
+- The click will snap onto the stored route line
+- Enter the sighting time, source note, and confidence
+- Save the sighting
+- Open `/` to see the live page update
 
 ## Editing The Route
 

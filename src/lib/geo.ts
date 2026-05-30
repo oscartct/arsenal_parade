@@ -1,4 +1,4 @@
-import type { RouteFeature } from "@/lib/types";
+import type { Checkpoint, RouteFeature, RouteSnap } from "@/lib/types";
 
 export function clampNumber(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max);
@@ -91,4 +91,106 @@ export function interpolatePositionAlongRoute(route: RouteFeature, targetDistanc
     latitude: lastLatitude,
     longitude: lastLongitude
   };
+}
+
+function latitudeScaleKm() {
+  return 110.574;
+}
+
+function longitudeScaleKm(latitude: number) {
+  return 111.32 * Math.cos((latitude * Math.PI) / 180);
+}
+
+function describeSnap(distanceKm: number, checkpoints: Checkpoint[]) {
+  let previousCheckpoint = checkpoints[0];
+
+  for (const checkpoint of checkpoints) {
+    if (Math.abs(checkpoint.distanceAlongRouteKm - distanceKm) <= 0.15) {
+      return `Near ${checkpoint.name}`;
+    }
+
+    if (checkpoint.distanceAlongRouteKm > distanceKm) {
+      return `Between ${previousCheckpoint.name} and ${checkpoint.name}`;
+    }
+
+    previousCheckpoint = checkpoint;
+  }
+
+  return `Near ${checkpoints[checkpoints.length - 1]?.name ?? "the route end"}`;
+}
+
+export function snapPointToRoute(
+  route: RouteFeature,
+  checkpoints: Checkpoint[],
+  latitude: number,
+  longitude: number
+): RouteSnap {
+  if (route.geometry.coordinates.length === 0) {
+    return {
+      latitude,
+      longitude,
+      distanceAlongRouteKm: 0,
+      label: "Manual sighting"
+    };
+  }
+
+  const originLatitude = latitude;
+  const latScale = latitudeScaleKm();
+  const lonScale = longitudeScaleKm(originLatitude);
+  const targetX = longitude * lonScale;
+  const targetY = latitude * latScale;
+
+  let bestDistanceSquared = Number.POSITIVE_INFINITY;
+  let bestSnap: RouteSnap = {
+    latitude,
+    longitude,
+    distanceAlongRouteKm: 0,
+    label: "Manual sighting"
+  };
+  let distanceBeforeSegmentKm = 0;
+
+  for (let index = 1; index < route.geometry.coordinates.length; index += 1) {
+    const [startLongitude, startLatitude] = route.geometry.coordinates[index - 1];
+    const [endLongitude, endLatitude] = route.geometry.coordinates[index];
+
+    const startX = startLongitude * lonScale;
+    const startY = startLatitude * latScale;
+    const endX = endLongitude * lonScale;
+    const endY = endLatitude * latScale;
+
+    const segmentDx = endX - startX;
+    const segmentDy = endY - startY;
+    const segmentLengthSquared = segmentDx ** 2 + segmentDy ** 2;
+    const projection =
+      segmentLengthSquared === 0
+        ? 0
+        : clampNumber(
+            ((targetX - startX) * segmentDx + (targetY - startY) * segmentDy) / segmentLengthSquared,
+            0,
+            1
+          );
+
+    const snappedX = startX + segmentDx * projection;
+    const snappedY = startY + segmentDy * projection;
+    const distanceSquared = (targetX - snappedX) ** 2 + (targetY - snappedY) ** 2;
+    const segmentDistanceKm = haversineDistanceKm(startLatitude, startLongitude, endLatitude, endLongitude);
+
+    if (distanceSquared < bestDistanceSquared) {
+      const snappedLatitude = startLatitude + (endLatitude - startLatitude) * projection;
+      const snappedLongitude = startLongitude + (endLongitude - startLongitude) * projection;
+      const snappedDistanceKm = roundTo(distanceBeforeSegmentKm + segmentDistanceKm * projection, 3);
+
+      bestDistanceSquared = distanceSquared;
+      bestSnap = {
+        latitude: snappedLatitude,
+        longitude: snappedLongitude,
+        distanceAlongRouteKm: snappedDistanceKm,
+        label: describeSnap(snappedDistanceKm, checkpoints)
+      };
+    }
+
+    distanceBeforeSegmentKm += segmentDistanceKm;
+  }
+
+  return bestSnap;
 }

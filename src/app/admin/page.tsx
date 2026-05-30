@@ -6,20 +6,17 @@ export default function AdminPage() {
     <main className="page-shell">
       <div className="page-frame">
         <section className="hero">
-          <span className="eyebrow">Manual Update Console</span>
-          <h1>Tracker Admin</h1>
+          <span className="eyebrow">Tester / Admin</span>
+          <h1>Manual Sighting Updates</h1>
           <p>
-            Use this page to save the latest confirmed convoy sighting from public stories, livestreams,
-            or other reports. Each save recalculates the estimated speed used on the public map.
+            Click on the map to place the latest confirmed sighting, then save it with a time and source note.
+            The public page will refresh from that update automatically.
           </p>
         </section>
-
-        <section className="admin-card">
-          <p className="admin-note">
-            Public page: <Link className="inline-link" href="/">open tracker</Link>
-          </p>
-          <AdminForm />
-        </section>
+        <p className="admin-note">
+          Public page: <Link className="inline-link" href="/">open tracker</Link>
+        </p>
+        <AdminForm />
       </div>
     </main>
   );

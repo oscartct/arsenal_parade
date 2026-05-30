@@ -10,7 +10,7 @@ export type Checkpoint = {
 
 export type SightingRecord = {
   id: string;
-  checkpointId: string;
+  checkpointId: string | null;
   checkpointName: string;
   latitude: number;
   longitude: number;
@@ -23,7 +23,9 @@ export type SightingRecord = {
 };
 
 export type SightingInput = {
-  checkpointId: string;
+  checkpointId?: string;
+  latitude?: number;
+  longitude?: number;
   sightingTimeIso: string;
   sourceNote: string;
   confidence: ConfidenceLevel;
@@ -69,7 +71,15 @@ export type TrackerApiPayload = {
 };
 
 export type AdminApiPayload = {
+  route: RouteFeature;
   checkpoints: Checkpoint[];
   sightings: SightingRecord[];
   snapshot: TrackerSnapshot;
+};
+
+export type RouteSnap = {
+  latitude: number;
+  longitude: number;
+  distanceAlongRouteKm: number;
+  label: string;
 };

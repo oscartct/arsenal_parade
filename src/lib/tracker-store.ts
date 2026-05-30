@@ -2,6 +2,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { DEFAULT_SPEED_KMH, PARADE_START_ISO, ROUTE_POLL_INTERVAL_MS } from "@/lib/config";
 import { buildTrackerSnapshot, calculateSpeedFromSightings } from "@/lib/estimation";
+import { snapPointToRoute } from "@/lib/geo";
 import type {
   AdminApiPayload,
   Checkpoint,
@@ -124,6 +125,7 @@ export async function getAdminPayload(): Promise<AdminApiPayload> {
   const [route, checkpoints, sightings] = await Promise.all([getRoute(), getCheckpoints(), getSightings()]);
 
   return {
+    route,
     checkpoints,
     sightings,
     snapshot: buildTrackerSnapshot({
@@ -137,12 +139,7 @@ export async function getAdminPayload(): Promise<AdminApiPayload> {
 }
 
 export async function saveSighting(input: SightingInput) {
-  const [checkpoints, currentSightings] = await Promise.all([getCheckpoints(), getSightings()]);
-  const checkpoint = checkpoints.find((entry) => entry.id === input.checkpointId);
-
-  if (!checkpoint) {
-    throw new Error("Unknown checkpoint selected.");
-  }
+  const [route, checkpoints, currentSightings] = await Promise.all([getRoute(), getCheckpoints(), getSightings()]);
 
   const sightingTime = new Date(input.sightingTimeIso);
 
@@ -150,16 +147,33 @@ export async function saveSighting(input: SightingInput) {
     throw new Error("Invalid sighting time.");
   }
 
+  const checkpoint = input.checkpointId
+    ? checkpoints.find((entry) => entry.id === input.checkpointId)
+    : undefined;
+  const hasCoordinates = typeof input.latitude === "number" && typeof input.longitude === "number";
+
+  if (!checkpoint && !hasCoordinates) {
+    throw new Error("Select a checkpoint or click on the map to create a sighting.");
+  }
+
   const previousSighting =
     currentSightings.length > 0 ? currentSightings[currentSightings.length - 1] : buildSyntheticStartSighting(checkpoints);
+  const routeSelection = checkpoint
+    ? {
+        latitude: checkpoint.latitude,
+        longitude: checkpoint.longitude,
+        distanceAlongRouteKm: checkpoint.distanceAlongRouteKm,
+        label: checkpoint.name
+      }
+    : snapPointToRoute(route, checkpoints, input.latitude as number, input.longitude as number);
 
   const nextRecord: SightingRecord = {
-    id: `${checkpoint.id}-${sightingTime.getTime()}`,
-    checkpointId: checkpoint.id,
-    checkpointName: checkpoint.name,
-    latitude: checkpoint.latitude,
-    longitude: checkpoint.longitude,
-    distanceAlongRouteKm: checkpoint.distanceAlongRouteKm,
+    id: `${routeSelection.distanceAlongRouteKm}-${sightingTime.getTime()}`,
+    checkpointId: checkpoint?.id ?? null,
+    checkpointName: checkpoint?.name ?? routeSelection.label,
+    latitude: routeSelection.latitude,
+    longitude: routeSelection.longitude,
+    distanceAlongRouteKm: routeSelection.distanceAlongRouteKm,
     sightingTimeIso: sightingTime.toISOString(),
     sourceNote: input.sourceNote.trim(),
     confidence: input.confidence,

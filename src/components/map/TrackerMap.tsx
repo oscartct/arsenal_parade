@@ -1,12 +1,23 @@
 "use client";
 
 import { useMemo } from "react";
-import { MapContainer, Marker, Polyline, TileLayer, Tooltip } from "react-leaflet";
+import { MapContainer, Marker, Polyline, TileLayer, Tooltip, useMapEvents } from "react-leaflet";
 import L from "leaflet";
-import type { TrackerApiPayload } from "@/lib/types";
+import type { RouteFeature } from "@/lib/types";
 
 type TrackerMapProps = {
-  payload: TrackerApiPayload;
+  route: RouteFeature;
+  estimatedPosition: {
+    latitude: number;
+    longitude: number;
+  };
+  estimatedPositionLabel: string;
+  draftPosition?: {
+    latitude: number;
+    longitude: number;
+    label: string;
+  } | null;
+  onMapClick?: (latitude: number, longitude: number) => void;
 };
 
 const busIcon = L.divIcon({
@@ -16,19 +27,43 @@ const busIcon = L.divIcon({
   iconAnchor: [18, 18]
 });
 
-export default function TrackerMap({ payload }: TrackerMapProps) {
+const draftIcon = L.divIcon({
+  html: '<div class="draft-pin" aria-hidden="true">+</div>',
+  className: "",
+  iconSize: [28, 28],
+  iconAnchor: [14, 14]
+});
+
+function MapClickHandler({ onMapClick }: { onMapClick?: (latitude: number, longitude: number) => void }) {
+  useMapEvents({
+    click(event) {
+      onMapClick?.(event.latlng.lat, event.latlng.lng);
+    }
+  });
+
+  return null;
+}
+
+export default function TrackerMap({
+  route,
+  estimatedPosition,
+  estimatedPositionLabel,
+  draftPosition = null,
+  onMapClick
+}: TrackerMapProps) {
   const routeLatLngs = useMemo(
-    () => payload.route.geometry.coordinates.map(([longitude, latitude]) => [latitude, longitude] as [number, number]),
-    [payload.route.geometry.coordinates]
+    () => route.geometry.coordinates.map(([longitude, latitude]) => [latitude, longitude] as [number, number]),
+    [route.geometry.coordinates]
   );
 
-  const estimatedPosition = useMemo<[number, number]>(
-    () => [payload.snapshot.estimatedPosition.latitude, payload.snapshot.estimatedPosition.longitude],
-    [payload.snapshot.estimatedPosition.latitude, payload.snapshot.estimatedPosition.longitude]
+  const liveMarkerPosition = useMemo<[number, number]>(
+    () => [estimatedPosition.latitude, estimatedPosition.longitude],
+    [estimatedPosition.latitude, estimatedPosition.longitude]
   );
 
   return (
     <MapContainer className="tracker-map" bounds={routeLatLngs} scrollWheelZoom={true}>
+      <MapClickHandler onMapClick={onMapClick} />
       <TileLayer
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -43,11 +78,19 @@ export default function TrackerMap({ payload }: TrackerMapProps) {
         }}
       />
 
-      <Marker position={estimatedPosition} icon={busIcon}>
+      <Marker position={liveMarkerPosition} icon={busIcon}>
         <Tooltip direction="top" offset={[0, -18]} opacity={1}>
-          {payload.snapshot.estimatedPositionLabel}
+          {estimatedPositionLabel}
         </Tooltip>
       </Marker>
+
+      {draftPosition ? (
+        <Marker position={[draftPosition.latitude, draftPosition.longitude]} icon={draftIcon}>
+          <Tooltip direction="top" offset={[0, -14]} opacity={1}>
+            {draftPosition.label}
+          </Tooltip>
+        </Marker>
+      ) : null}
     </MapContainer>
   );
 }

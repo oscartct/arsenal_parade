@@ -52,6 +52,11 @@ textarea {
   gap: 24px;
 }
 
+.page-frame-simple {
+  max-width: 1400px;
+  gap: 18px;
+}
+
 .hero {
   position: relative;
   overflow: hidden;
@@ -106,6 +111,15 @@ textarea {
   font-size: 1.02rem;
 }
 
+.hero-simple {
+  padding: 20px 28px;
+}
+
+.hero-simple h1 {
+  margin: 0;
+  font-size: clamp(2rem, 4vw, 3.7rem);
+}
+
 .tracker-grid {
   display: grid;
   grid-template-columns: minmax(0, 1.5fr) minmax(320px, 0.9fr);
@@ -127,6 +141,15 @@ textarea {
   min-height: 640px;
 }
 
+.public-map-card {
+  overflow: hidden;
+  min-height: calc(100vh - 180px);
+  border-radius: 28px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  box-shadow: var(--shadow);
+}
+
 .panel-card,
 .admin-card {
   padding: 22px;
@@ -140,6 +163,18 @@ textarea {
 .tracker-map {
   height: 100%;
   width: 100%;
+}
+
+.public-map-loading {
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+}
+
+.admin-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(320px, 0.9fr);
+  gap: 24px;
 }
 
 .panel-header,
@@ -353,6 +388,21 @@ textarea {
   font-size: 18px;
 }
 
+.draft-pin {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #d8192a;
+  color: white;
+  border: 2px solid rgba(31, 28, 26, 0.9);
+  box-shadow: 0 8px 16px rgba(31, 28, 26, 0.24);
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1;
+}
+
 .leaflet-container {
   background: #d8d5cc;
 }
@@ -362,8 +412,13 @@ textarea {
     grid-template-columns: 1fr;
   }
 
+  .admin-layout {
+    grid-template-columns: 1fr;
+  }
+
   .map-card,
-  .map-shell {
+  .map-shell,
+  .public-map-card {
     min-height: 500px;
   }
 }
