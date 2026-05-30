@@ -146,6 +146,10 @@ async function persistStoredValue<T>({
     return;
   }
 
+  if (isProductionRuntime()) {
+    throw new Error("Persistent Postgres storage is not configured on the live app. Check DATABASE_URL in Railway.");
+  }
+
   try {
     await writeJsonFile(fileName, value);
     runtimeState[storageModeKey] = "file";
@@ -160,6 +164,20 @@ function buildDefaultSimulationState(): SimulationState {
     offsetMs: 0,
     anchorRealIso: null,
     anchorSimulatedIso: null
+  };
+}
+
+function isProductionRuntime() {
+  return process.env.NODE_ENV === "production";
+}
+
+function buildPersistenceInfo() {
+  return {
+    databaseConfigured: hasDatabaseConnection(),
+    routeStorageMode: runtimeState.__arsenalParadeRouteStorageMode ?? "memory",
+    checkpointStorageMode: runtimeState.__arsenalParadeRouteStorageMode ?? "memory",
+    sightingsStorageMode: runtimeState.__arsenalParadeStorageMode ?? "memory",
+    simulationStorageMode: runtimeState.__arsenalParadeSimulationStorageMode ?? "memory"
   };
 }
 
@@ -308,6 +326,7 @@ export async function getTrackerPayload(nowOverride?: string): Promise<TrackerAp
     route,
     checkpoints,
     snapshot,
+    persistence: buildPersistenceInfo(),
     simulation: {
       ...simulation,
       effectiveNowIso: effectiveNow.toISOString()
@@ -338,6 +357,7 @@ export async function getAdminPayload(): Promise<AdminApiPayload> {
       now: effectiveNow,
       storageMode: runtimeState.__arsenalParadeStorageMode ?? "memory"
     }),
+    persistence: buildPersistenceInfo(),
     simulation: {
       ...simulation,
       effectiveNowIso: effectiveNow.toISOString()

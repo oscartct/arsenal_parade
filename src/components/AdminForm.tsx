@@ -336,6 +336,17 @@ export function AdminForm() {
           </div>
 
           <div className="metric">
+            <p className="metric-label">Persistence status</p>
+            <p className="metric-value">
+              {payload.persistence.databaseConfigured ? "Postgres configured" : "Postgres not configured"}
+            </p>
+            <p className="metric-subtle">
+              Route: {payload.persistence.routeStorageMode} • Sightings: {payload.persistence.sightingsStorageMode} •
+              Simulation: {payload.persistence.simulationStorageMode}
+            </p>
+          </div>
+
+          <div className="metric">
             <p className="metric-label">Estimated bus speed</p>
             <p className="metric-value">{payload.snapshot.estimatedAverageSpeedKmh.toFixed(2)} km/h</p>
             <p className="metric-subtle">

@@ -2,6 +2,14 @@ export type ConfidenceLevel = "low" | "medium" | "high";
 
 export type StorageMode = "db" | "file" | "memory";
 
+export type PersistenceInfo = {
+  databaseConfigured: boolean;
+  routeStorageMode: StorageMode;
+  checkpointStorageMode: StorageMode;
+  sightingsStorageMode: StorageMode;
+  simulationStorageMode: StorageMode;
+};
+
 export type Checkpoint = {
   id: string;
   name: string;
@@ -82,6 +90,7 @@ export type TrackerApiPayload = {
   route: RouteFeature;
   checkpoints: Checkpoint[];
   snapshot: TrackerSnapshot;
+  persistence: PersistenceInfo;
   simulation: SimulationState & {
     effectiveNowIso: string;
   };
@@ -95,6 +104,7 @@ export type AdminApiPayload = {
   checkpoints: Checkpoint[];
   sightings: SightingRecord[];
   snapshot: TrackerSnapshot;
+  persistence: PersistenceInfo;
   simulation: SimulationState & {
     effectiveNowIso: string;
   };
