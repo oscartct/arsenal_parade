@@ -28,8 +28,8 @@ type TrackerMapProps = {
 const busIcon = L.divIcon({
   html: '<div class="bus-pin" aria-hidden="true"><img src="/arsenal-bus.png" alt="" /></div>',
   className: "",
-  iconSize: [76, 56],
-  iconAnchor: [38, 28]
+  iconSize: [48, 36],
+  iconAnchor: [24, 18]
 });
 
 const draftIcon = L.divIcon({
