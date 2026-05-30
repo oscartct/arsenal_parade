@@ -61,14 +61,14 @@ export function blendEstimatedSpeed({
   isFirstConfirmedSighting: boolean;
 }) {
   const baseWeight = {
-    low: 0.22,
-    medium: 0.35,
-    high: 0.5
+    low: 0.3,
+    medium: 0.5,
+    high: 0.68
   }[confidence];
-  const distanceBoost = clampNumber(distanceDeltaKm / 3, 0, 0.18);
-  const timeBoost = clampNumber(elapsedHours / 2, 0, 0.1);
-  const firstSightingBoost = isFirstConfirmedSighting ? 0.12 : 0;
-  const observationWeight = clampNumber(baseWeight + distanceBoost + timeBoost + firstSightingBoost, 0.2, 0.82);
+  const distanceBoost = clampNumber(distanceDeltaKm / 2.5, 0, 0.2);
+  const timeBoost = clampNumber(elapsedHours / 1.5, 0, 0.12);
+  const firstSightingBoost = isFirstConfirmedSighting ? 0.14 : 0;
+  const observationWeight = clampNumber(baseWeight + distanceBoost + timeBoost + firstSightingBoost, 0.3, 0.92);
 
   return roundTo(
     clampNumber(
@@ -81,7 +81,7 @@ export function blendEstimatedSpeed({
 }
 
 export function shouldUpdateEstimatedSpeed(distanceDeltaKm: number, elapsedMinutes: number) {
-  return distanceDeltaKm >= 0.15 && elapsedMinutes >= 3;
+  return distanceDeltaKm >= 0.15 && elapsedMinutes >= 1;
 }
 
 function deriveConfidence(confidence: ConfidenceLevel, ageMinutes: number) {

@@ -36,7 +36,7 @@ export function AdminForm() {
   const [sightingTimeLocal, setSightingTimeLocal] = useState(toDatetimeLocalValue(new Date()));
   const [useCurrentTrackerTime, setUseCurrentTrackerTime] = useState(true);
   const [sourceNote, setSourceNote] = useState("Instagram story");
-  const [confidence, setConfidence] = useState<ConfidenceLevel>("medium");
+  const [confidence, setConfidence] = useState<ConfidenceLevel>("high");
   const [draftSelection, setDraftSelection] = useState<RouteSnap | null>(null);
   const [routeEditMode, setRouteEditMode] = useState(false);
   const [routeDraftPoints, setRouteDraftPoints] = useState<{ latitude: number; longitude: number }[]>([]);
