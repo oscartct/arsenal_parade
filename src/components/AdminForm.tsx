@@ -3,17 +3,12 @@
 import { useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import { snapPointToRoute } from "@/lib/geo";
-import type { AdminApiPayload, ConfidenceLevel, RouteEditorInput, RouteSnap, SightingInput } from "@/lib/types";
+import type { AdminApiPayload, RouteEditorInput, RouteSnap, SightingInput } from "@/lib/types";
 
 const TrackerMap = dynamic(() => import("@/components/map/TrackerMap"), {
   ssr: false,
   loading: () => <div className="map-shell" />
 });
-
-function toDatetimeLocalValue(date: Date) {
-  const pad = (value: number) => String(value).padStart(2, "0");
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
-}
 
 function formatDateTime(value: string) {
   return new Intl.DateTimeFormat("en-GB", {
@@ -33,8 +28,6 @@ function formatMinutes(totalMinutes: number) {
 
   return `${hours}h ${String(minutes).padStart(2, "0")}m`;
 }
-
-const confidenceOptions: ConfidenceLevel[] = ["low", "medium", "high"];
 
 function rotateRouteDraftToStart(
   points: { latitude: number; longitude: number }[],
@@ -81,10 +74,6 @@ export function AdminForm() {
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
   const [adminPassword, setAdminPassword] = useState("");
-  const [sightingTimeLocal, setSightingTimeLocal] = useState(toDatetimeLocalValue(new Date()));
-  const [useCurrentTrackerTime, setUseCurrentTrackerTime] = useState(true);
-  const [sourceNote, setSourceNote] = useState("Instagram story");
-  const [confidence, setConfidence] = useState<ConfidenceLevel>("high");
   const [draftSelection, setDraftSelection] = useState<RouteSnap | null>(null);
   const [routeEditMode, setRouteEditMode] = useState(false);
   const [routeDraftPoints, setRouteDraftPoints] = useState<{ latitude: number; longitude: number }[]>([]);
@@ -286,13 +275,9 @@ export function AdminForm() {
       adminPassword,
       latitude: draftSelection.latitude,
       longitude: draftSelection.longitude,
-      sourceNote,
-      confidence
+      sourceNote: "Admin update",
+      confidence: "high"
     };
-
-    if (!useCurrentTrackerTime) {
-      body.sightingTimeIso = new Date(sightingTimeLocal).toISOString();
-    }
 
     try {
       const response = await fetch("/api/admin/sighting", {
@@ -474,7 +459,7 @@ export function AdminForm() {
             <p className="metric-label">Current live marker</p>
             <p className="metric-value">{payload.snapshot.estimatedPositionLabel}</p>
             <p className="metric-subtle">
-              Latest confirmed: {latestSummary ? latestSummary.checkpointName : "No manual sighting yet"}
+              Latest confirmed: {latestSummary ? latestSummary.checkpointName : "No confirmed sighting yet"}
             </p>
           </div>
 
@@ -592,59 +577,12 @@ export function AdminForm() {
             />
           </div>
 
-          <div className="field-row">
-            <label htmlFor="use-current-time">Timing mode</label>
-            <select
-              id="use-current-time"
-              value={useCurrentTrackerTime ? "live" : "manual"}
-              onChange={(event) => setUseCurrentTrackerTime(event.target.value === "live")}
-            >
-              <option value="live">Use current tracker time</option>
-              <option value="manual">Enter manual time</option>
-            </select>
-          </div>
-
-          {useCurrentTrackerTime ? (
-            <div className="metric">
-              <p className="metric-label">Sighting time</p>
-              <p className="metric-value">{effectiveNowLabel}</p>
-              <p className="metric-subtle">
-                This click will be treated as a live sighting at the tracker’s current effective time.
-              </p>
-            </div>
-          ) : (
-            <div className="field-row">
-              <label htmlFor="sighting-time">Manual sighting time</label>
-              <input
-                id="sighting-time"
-                type="datetime-local"
-                value={sightingTimeLocal}
-                onChange={(event) => setSightingTimeLocal(event.target.value)}
-                required
-              />
-            </div>
-          )}
-
-          <div className="field-row">
-            <label htmlFor="source-note">Source note</label>
-            <textarea
-              id="source-note"
-              value={sourceNote}
-              onChange={(event) => setSourceNote(event.target.value)}
-              placeholder="Instagram story, Arsenal livestream, friend report..."
-              required
-            />
-          </div>
-
-          <div className="field-row">
-            <label htmlFor="confidence">Confidence</label>
-            <select id="confidence" value={confidence} onChange={(event) => setConfidence(event.target.value as ConfidenceLevel)} required>
-              {confidenceOptions.map((option) => (
-                <option key={option} value={option}>
-                  {option}
-                </option>
-              ))}
-            </select>
+          <div className="metric">
+            <p className="metric-label">Update time</p>
+            <p className="metric-value">{effectiveNowLabel}</p>
+            <p className="metric-subtle">
+              Every saved sighting uses the current live tracker time and high confidence.
+            </p>
           </div>
 
           <div className="action-row">

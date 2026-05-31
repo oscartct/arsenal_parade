@@ -306,19 +306,24 @@ async function persistRouteAndCheckpoints(route: RouteFeature, checkpoints: Chec
 }
 
 function buildSyntheticStartSighting(
+  route: RouteFeature,
   checkpoints: Checkpoint[],
   paradeStartIso: string,
   baselineSpeedKmh: number
 ): SightingRecord {
   const startCheckpoint = checkpoints[0];
+  const [startLongitude, startLatitude] = route.geometry.coordinates[0] ?? [
+    startCheckpoint?.longitude ?? 0,
+    startCheckpoint?.latitude ?? 0
+  ];
 
   return {
     id: "start-assumption",
-    checkpointId: startCheckpoint.id,
-    checkpointName: startCheckpoint.name,
-    latitude: startCheckpoint.latitude,
-    longitude: startCheckpoint.longitude,
-    distanceAlongRouteKm: startCheckpoint.distanceAlongRouteKm,
+    checkpointId: null,
+    checkpointName: startCheckpoint?.name ?? "Route start",
+    latitude: startLatitude,
+    longitude: startLongitude,
+    distanceAlongRouteKm: 0,
     sightingTimeIso: paradeStartIso,
     sourceNote: "Using the scheduled parade start as the initial estimate.",
     confidence: "medium",
@@ -450,7 +455,7 @@ export async function saveSighting(input: SightingInput) {
   const previousSighting =
     currentSightings.length > 0
       ? currentSightings[currentSightings.length - 1]
-      : buildSyntheticStartSighting(checkpoints, effectiveParadeStartIso, control.manualSpeedKmh ?? DEFAULT_SPEED_KMH);
+      : buildSyntheticStartSighting(route, checkpoints, effectiveParadeStartIso, control.manualSpeedKmh ?? DEFAULT_SPEED_KMH);
   const routeSelection = checkpoint
     ? {
         latitude: checkpoint.latitude,

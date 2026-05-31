@@ -2,16 +2,25 @@ import { DEFAULT_SPEED_KMH } from "@/lib/config";
 import { clampNumber, getRouteLengthKm, interpolatePositionAlongRoute, roundTo } from "@/lib/geo";
 import type { Checkpoint, ConfidenceLevel, RouteFeature, SightingRecord, StorageMode, TrackerSnapshot } from "@/lib/types";
 
-function buildStartAssumption(checkpoints: Checkpoint[], paradeStartIso: string, baselineSpeedKmh: number): SightingRecord {
+function buildStartAssumption(
+  route: RouteFeature,
+  checkpoints: Checkpoint[],
+  paradeStartIso: string,
+  baselineSpeedKmh: number
+): SightingRecord {
   const startCheckpoint = checkpoints[0];
+  const [startLongitude, startLatitude] = route.geometry.coordinates[0] ?? [
+    startCheckpoint?.longitude ?? 0,
+    startCheckpoint?.latitude ?? 0
+  ];
 
   return {
     id: "start-assumption",
-    checkpointId: startCheckpoint.id,
-    checkpointName: startCheckpoint.name,
-    latitude: startCheckpoint.latitude,
-    longitude: startCheckpoint.longitude,
-    distanceAlongRouteKm: startCheckpoint.distanceAlongRouteKm,
+    checkpointId: null,
+    checkpointName: startCheckpoint?.name ?? "Route start",
+    latitude: startLatitude,
+    longitude: startLongitude,
+    distanceAlongRouteKm: 0,
     sightingTimeIso: paradeStartIso,
     sourceNote: "Using the scheduled parade start as the initial estimate.",
     confidence: "medium",
@@ -156,7 +165,7 @@ export function buildTrackerSnapshot({
   holdAtStartUntilLiveRun: boolean;
 }): TrackerSnapshot {
   const routeLengthKm = getRouteLengthKm(route);
-  const baselineSighting = buildStartAssumption(checkpoints, paradeStartIso, manualSpeedKmh ?? DEFAULT_SPEED_KMH);
+  const baselineSighting = buildStartAssumption(route, checkpoints, paradeStartIso, manualSpeedKmh ?? DEFAULT_SPEED_KMH);
   const latestConfirmedSighting = actualSightings.length > 0 ? actualSightings[actualSightings.length - 1] : null;
   const estimationBaseSighting = latestConfirmedSighting ?? baselineSighting;
   const estimatedAverageSpeedKmh =
