@@ -22,6 +22,18 @@ function formatDateTime(value: string) {
   }).format(new Date(value));
 }
 
+function formatMinutes(totalMinutes: number) {
+  const roundedMinutes = Math.max(0, Math.round(totalMinutes));
+  const hours = Math.floor(roundedMinutes / 60);
+  const minutes = roundedMinutes % 60;
+
+  if (hours === 0) {
+    return `${minutes} min`;
+  }
+
+  return `${hours}h ${String(minutes).padStart(2, "0")}m`;
+}
+
 const confidenceOptions: ConfidenceLevel[] = ["low", "medium", "high"];
 
 export function AdminForm() {
@@ -82,6 +94,14 @@ export function AdminForm() {
   const effectiveNowLabel = payload
     ? formatDateTime(payload.simulation.effectiveNowIso)
     : "Loading...";
+  const estimatedFullRouteMinutes = payload
+    ? (payload.snapshot.routeLengthKm / Math.max(payload.snapshot.estimatedAverageSpeedKmh, 0.1)) * 60
+    : 0;
+  const remainingRouteMinutes = payload
+    ? ((payload.snapshot.routeLengthKm - payload.snapshot.estimatedDistanceKm) /
+        Math.max(payload.snapshot.estimatedAverageSpeedKmh, 0.1)) *
+      60
+    : 0;
 
   const handleMapClick = (latitude: number, longitude: number) => {
     if (!payload) {
@@ -419,6 +439,10 @@ export function AdminForm() {
                 : payload.snapshot.latestObservedSegmentSpeedKmh !== null
                   ? `Latest raw segment speed: ${payload.snapshot.latestObservedSegmentSpeedKmh.toFixed(2)} km/h`
                   : "Using the initial fallback speed until the first confirmed sighting."}
+            </p>
+            <p className="metric-subtle">
+              At this speed, the full route is about {formatMinutes(estimatedFullRouteMinutes)} and the remaining route is about{" "}
+              {formatMinutes(remainingRouteMinutes)}.
             </p>
           </div>
 
