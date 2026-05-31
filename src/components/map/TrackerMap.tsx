@@ -25,11 +25,11 @@ type TrackerMapProps = {
   onMapClick?: (latitude: number, longitude: number) => void;
 };
 
-const busIcon = L.divIcon({
-  html: '<div class="bus-pin" aria-hidden="true"><img src="/arsenal-bus.png" alt="" /></div>',
-  className: "",
-  iconSize: [34, 26],
-  iconAnchor: [17, 13]
+const busIcon = L.icon({
+  iconUrl: "/arsenal-bus.png",
+  className: "bus-marker-image",
+  iconSize: [28, 22],
+  iconAnchor: [14, 11]
 });
 
 const draftIcon = L.divIcon({
