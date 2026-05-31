@@ -328,7 +328,7 @@ export function AdminForm() {
       const successMessage = {
         "start-live-run":
           "Public tracking started from the current moment. Previous sightings were cleared and simulation was stopped.",
-        "reset-live-run": "Live run start reset back to the scheduled 2pm baseline.",
+        "reset-live-run": "Bus reset to the route start. The tracker is now waiting for you to start the live public run.",
         "set-manual-speed": "Manual speed override updated.",
         "clear-manual-speed": "Manual speed override cleared. Automatic speed estimation is back in control."
       }[action];
@@ -400,11 +400,13 @@ export function AdminForm() {
 
           <div className="metric">
             <p className="metric-label">Public run start</p>
-            <p className="metric-value">{formatDateTime(payload.snapshot.paradeStartIso)}</p>
+            <p className="metric-value">
+              {payload.control.liveRunStartIso ? formatDateTime(payload.snapshot.paradeStartIso) : "Waiting at startpoint"}
+            </p>
             <p className="metric-subtle">
               {payload.control.liveRunStartIso
                 ? "Using the manually started live run time."
-                : "Using the scheduled 2pm parade start."}
+                : "The bus is pinned at the route start until you press Start public run now."}
             </p>
           </div>
 
@@ -451,7 +453,7 @@ export function AdminForm() {
               onClick={() => void handleControlAction("reset-live-run")}
               disabled={controlSubmitting}
             >
-              Reset to 2pm start
+              Reset bus to startpoint
             </button>
           </div>
         </div>

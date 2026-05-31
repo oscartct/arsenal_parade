@@ -1,4 +1,4 @@
-import { DEFAULT_SPEED_KMH, PARADE_START_ISO } from "@/lib/config";
+import { DEFAULT_SPEED_KMH } from "@/lib/config";
 import { clampNumber, getRouteLengthKm, interpolatePositionAlongRoute, roundTo } from "@/lib/geo";
 import type { Checkpoint, ConfidenceLevel, RouteFeature, SightingRecord, StorageMode, TrackerSnapshot } from "@/lib/types";
 
@@ -143,7 +143,8 @@ export function buildTrackerSnapshot({
   now,
   storageMode,
   paradeStartIso,
-  manualSpeedKmh
+  manualSpeedKmh,
+  holdAtStartUntilLiveRun
 }: {
   route: RouteFeature;
   checkpoints: Checkpoint[];
@@ -152,6 +153,7 @@ export function buildTrackerSnapshot({
   storageMode: StorageMode;
   paradeStartIso: string;
   manualSpeedKmh: number | null;
+  holdAtStartUntilLiveRun: boolean;
 }): TrackerSnapshot {
   const routeLengthKm = getRouteLengthKm(route);
   const baselineSighting = buildStartAssumption(checkpoints, paradeStartIso, manualSpeedKmh ?? DEFAULT_SPEED_KMH);
@@ -159,10 +161,9 @@ export function buildTrackerSnapshot({
   const estimationBaseSighting = latestConfirmedSighting ?? baselineSighting;
   const estimatedAverageSpeedKmh =
     manualSpeedKmh ?? latestConfirmedSighting?.estimatedAverageSpeedKmh ?? baselineSighting.estimatedAverageSpeedKmh;
-  const hoursSinceLatestUpdate = Math.max(
-    0,
-    (now.getTime() - new Date(estimationBaseSighting.sightingTimeIso).getTime()) / 3_600_000
-  );
+  const hoursSinceLatestUpdate = holdAtStartUntilLiveRun
+    ? 0
+    : Math.max(0, (now.getTime() - new Date(estimationBaseSighting.sightingTimeIso).getTime()) / 3_600_000);
   const estimatedDistanceKm = clampNumber(
     roundTo(
       estimationBaseSighting.distanceAlongRouteKm + hoursSinceLatestUpdate * estimatedAverageSpeedKmh,
@@ -177,7 +178,9 @@ export function buildTrackerSnapshot({
     Math.max(0, (now.getTime() - new Date(estimationBaseSighting.sightingTimeIso).getTime()) / 60_000)
   );
   const fallbackConfidenceReason =
-    now.getTime() < new Date(paradeStartIso).getTime()
+    holdAtStartUntilLiveRun
+      ? "Tracker is waiting for the admin to start the live public run, so the bus is pinned at the route start."
+      : now.getTime() < new Date(paradeStartIso).getTime()
       ? "Parade has not started yet, so the tracker is pinned to the planned start checkpoint."
       : "No confirmed public sighting yet, so the estimate is still using the scheduled start assumption.";
 

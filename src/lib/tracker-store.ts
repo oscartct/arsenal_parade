@@ -358,6 +358,7 @@ export async function getTrackerPayload(nowOverride?: string): Promise<TrackerAp
   const realNow = parseNow(nowOverride);
   const effectiveNow = getEffectiveNow(simulation, realNow);
   const effectiveParadeStartIso = getEffectiveParadeStartIso(control);
+  const holdAtStartUntilLiveRun = control.liveRunStartIso === null && actualSightings.length === 0 && !simulation.isActive;
   const snapshot = buildTrackerSnapshot({
     route,
     checkpoints,
@@ -365,7 +366,8 @@ export async function getTrackerPayload(nowOverride?: string): Promise<TrackerAp
     now: effectiveNow,
     storageMode: runtimeState.__arsenalParadeStorageMode ?? "memory",
     paradeStartIso: effectiveParadeStartIso,
-    manualSpeedKmh: control.manualSpeedKmh
+    manualSpeedKmh: control.manualSpeedKmh,
+    holdAtStartUntilLiveRun
   });
 
   return {
@@ -394,6 +396,7 @@ export async function getAdminPayload(): Promise<AdminApiPayload> {
   ]);
   const effectiveNow = getEffectiveNow(simulation, new Date());
   const effectiveParadeStartIso = getEffectiveParadeStartIso(control);
+  const holdAtStartUntilLiveRun = control.liveRunStartIso === null && sightings.length === 0 && !simulation.isActive;
 
   return {
     route,
@@ -406,7 +409,8 @@ export async function getAdminPayload(): Promise<AdminApiPayload> {
       now: effectiveNow,
       storageMode: runtimeState.__arsenalParadeStorageMode ?? "memory",
       paradeStartIso: effectiveParadeStartIso,
-      manualSpeedKmh: control.manualSpeedKmh
+      manualSpeedKmh: control.manualSpeedKmh,
+      holdAtStartUntilLiveRun
     }),
     control,
     persistence: buildPersistenceInfo(),
@@ -568,7 +572,7 @@ export async function startLiveRunNow() {
 }
 
 export async function resetLiveRunStart() {
-  const currentControl = await getControlState();
+  const [currentControl] = await Promise.all([getControlState(), clearSightings(), stopSimulation()]);
   const nextControl: TrackerControlState = {
     ...currentControl,
     liveRunStartIso: null
