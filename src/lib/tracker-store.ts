@@ -609,3 +609,14 @@ export async function clearManualSpeedOverride() {
   await persistControlState(nextControl);
   return nextControl;
 }
+
+export async function fullResetTrackerState() {
+  await clearSightings();
+  await stopSimulation();
+  const nextControl: TrackerControlState = {
+    liveRunStartIso: null,
+    manualSpeedKmh: null
+  };
+  await persistControlState(nextControl);
+  return nextControl;
+}

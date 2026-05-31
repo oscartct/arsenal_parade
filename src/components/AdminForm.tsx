@@ -353,7 +353,7 @@ export function AdminForm() {
   };
 
   const handleControlAction = async (
-    action: "start-live-run" | "reset-live-run" | "set-manual-speed" | "clear-manual-speed"
+    action: "start-live-run" | "reset-live-run" | "set-manual-speed" | "clear-manual-speed" | "full-reset"
   ) => {
     if (action === "set-manual-speed" && !manualSpeedInput.trim()) {
       setFeedback({
@@ -395,7 +395,8 @@ export function AdminForm() {
           "Public tracking started from the current moment. Previous sightings were cleared and simulation was stopped.",
         "reset-live-run": "Bus reset to the route start. The tracker is now waiting for you to start the live public run.",
         "set-manual-speed": "Manual speed override updated.",
-        "clear-manual-speed": "Manual speed override cleared. Automatic speed estimation is back in control."
+        "clear-manual-speed": "Manual speed override cleared. Automatic speed estimation is back in control.",
+        "full-reset": "Full reset complete. Bus pinned to route point 1, manual speed cleared, sightings cleared, and simulation stopped."
       }[action];
 
       setFeedback({
@@ -523,6 +524,14 @@ export function AdminForm() {
               disabled={controlSubmitting}
             >
               Reset bus to startpoint
+            </button>
+            <button
+              className="secondary-button"
+              type="button"
+              onClick={() => void handleControlAction("full-reset")}
+              disabled={controlSubmitting}
+            >
+              Full reset
             </button>
           </div>
         </div>

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ADMIN_PASSWORD } from "@/lib/config";
 import {
+  fullResetTrackerState,
   clearManualSpeedOverride,
   resetLiveRunStart,
   setManualSpeedOverride,
@@ -39,6 +40,11 @@ export async function POST(request: NextRequest) {
 
     if (action === "clear-manual-speed") {
       const control = await clearManualSpeedOverride();
+      return NextResponse.json({ ok: true, control });
+    }
+
+    if (action === "full-reset") {
+      const control = await fullResetTrackerState();
       return NextResponse.json({ ok: true, control });
     }
 
