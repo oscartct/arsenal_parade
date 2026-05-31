@@ -28,8 +28,8 @@ type TrackerMapProps = {
 const busIcon = L.icon({
   iconUrl: "/arsenal-bus.png",
   className: "bus-marker-image",
-  iconSize: [28, 22],
-  iconAnchor: [14, 11]
+  iconSize: [70, 55],
+  iconAnchor: [35, 27]
 });
 
 const draftIcon = L.divIcon({
