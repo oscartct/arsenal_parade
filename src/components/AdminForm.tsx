@@ -36,6 +36,41 @@ function formatMinutes(totalMinutes: number) {
 
 const confidenceOptions: ConfidenceLevel[] = ["low", "medium", "high"];
 
+function rotateRouteDraftToStart(
+  points: { latitude: number; longitude: number }[],
+  target: { latitude: number; longitude: number }
+) {
+  if (points.length < 2) {
+    return points;
+  }
+
+  const isClosedLoop =
+    Math.abs(points[0].latitude - points[points.length - 1].latitude) < 0.000001 &&
+    Math.abs(points[0].longitude - points[points.length - 1].longitude) < 0.000001;
+  const workingPoints = isClosedLoop ? points.slice(0, -1) : points.slice();
+
+  let nearestIndex = 0;
+  let bestDistance = Number.POSITIVE_INFINITY;
+
+  workingPoints.forEach((point, index) => {
+    const distance =
+      (point.latitude - target.latitude) ** 2 + (point.longitude - target.longitude) ** 2;
+
+    if (distance < bestDistance) {
+      bestDistance = distance;
+      nearestIndex = index;
+    }
+  });
+
+  const rotated = [...workingPoints.slice(nearestIndex), ...workingPoints.slice(0, nearestIndex)];
+
+  if (isClosedLoop && rotated.length > 0) {
+    rotated.push({ ...rotated[0] });
+  }
+
+  return rotated;
+}
+
 export function AdminForm() {
   const [payload, setPayload] = useState<AdminApiPayload | null>(null);
   const [loading, setLoading] = useState(true);
@@ -158,8 +193,8 @@ export function AdminForm() {
     setFeedback(null);
   };
 
-  const handleSaveRoute = async () => {
-    if (routeDraftPoints.length < 2) {
+  const saveRoutePoints = async (points: { latitude: number; longitude: number }[]) => {
+    if (points.length < 2) {
       setFeedback({
         type: "error",
         message: "Add at least two route points before saving."
@@ -172,7 +207,7 @@ export function AdminForm() {
 
     const body: RouteEditorInput & { adminPassword: string } = {
       adminPassword,
-      coordinates: routeDraftPoints.map((point) => [point.longitude, point.latitude])
+      coordinates: points.map((point) => [point.longitude, point.latitude])
     };
 
     try {
@@ -206,6 +241,31 @@ export function AdminForm() {
     } finally {
       setRouteSubmitting(false);
     }
+  };
+
+  const handleSaveRoute = async () => {
+    await saveRoutePoints(routeDraftPoints);
+  };
+
+  const handleMoveRouteStartToDraft = async () => {
+    if (!payload || !draftSelection) {
+      setFeedback({
+        type: "error",
+        message: "Click the correct startpoint on the map first."
+      });
+      return;
+    }
+
+    const currentPoints = payload.route.geometry.coordinates.map(([longitude, latitude]) => ({
+      latitude,
+      longitude
+    }));
+    const rotatedPoints = rotateRouteDraftToStart(currentPoints, {
+      latitude: draftSelection.latitude,
+      longitude: draftSelection.longitude
+    });
+
+    await saveRoutePoints(rotatedPoints);
   };
 
   const handleSaveSighting = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -668,6 +728,18 @@ export function AdminForm() {
                 Turn on route edit mode, then click directly on the visible map roads to redraw the parade line.
                 Save when the line sits correctly on the basemap.
               </p>
+              {!routeEditMode && draftSelection ? (
+                <div className="action-row">
+                  <button
+                    className="secondary-button"
+                    type="button"
+                    onClick={() => void handleMoveRouteStartToDraft()}
+                    disabled={routeSubmitting}
+                  >
+                    Make clicked point the route start
+                  </button>
+                </div>
+              ) : null}
               <div className="action-row">
                 {routeEditMode ? (
                   <>
