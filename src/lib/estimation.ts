@@ -2,7 +2,7 @@ import { DEFAULT_SPEED_KMH, PARADE_START_ISO } from "@/lib/config";
 import { clampNumber, getRouteLengthKm, interpolatePositionAlongRoute, roundTo } from "@/lib/geo";
 import type { Checkpoint, ConfidenceLevel, RouteFeature, SightingRecord, StorageMode, TrackerSnapshot } from "@/lib/types";
 
-function buildStartAssumption(checkpoints: Checkpoint[]): SightingRecord {
+function buildStartAssumption(checkpoints: Checkpoint[], paradeStartIso: string, baselineSpeedKmh: number): SightingRecord {
   const startCheckpoint = checkpoints[0];
 
   return {
@@ -12,14 +12,14 @@ function buildStartAssumption(checkpoints: Checkpoint[]): SightingRecord {
     latitude: startCheckpoint.latitude,
     longitude: startCheckpoint.longitude,
     distanceAlongRouteKm: startCheckpoint.distanceAlongRouteKm,
-    sightingTimeIso: PARADE_START_ISO,
+    sightingTimeIso: paradeStartIso,
     sourceNote: "Using the scheduled parade start as the initial estimate.",
     confidence: "medium",
-    estimatedAverageSpeedKmh: DEFAULT_SPEED_KMH,
+    estimatedAverageSpeedKmh: baselineSpeedKmh,
     observedSegmentSpeedKmh: null,
     distanceFromPreviousKm: 0,
     minutesFromPrevious: 0,
-    createdAtIso: PARADE_START_ISO
+    createdAtIso: paradeStartIso
   };
 }
 
@@ -141,20 +141,24 @@ export function buildTrackerSnapshot({
   checkpoints,
   actualSightings,
   now,
-  storageMode
+  storageMode,
+  paradeStartIso,
+  manualSpeedKmh
 }: {
   route: RouteFeature;
   checkpoints: Checkpoint[];
   actualSightings: SightingRecord[];
   now: Date;
   storageMode: StorageMode;
+  paradeStartIso: string;
+  manualSpeedKmh: number | null;
 }): TrackerSnapshot {
   const routeLengthKm = getRouteLengthKm(route);
-  const baselineSighting = buildStartAssumption(checkpoints);
+  const baselineSighting = buildStartAssumption(checkpoints, paradeStartIso, manualSpeedKmh ?? DEFAULT_SPEED_KMH);
   const latestConfirmedSighting = actualSightings.length > 0 ? actualSightings[actualSightings.length - 1] : null;
   const estimationBaseSighting = latestConfirmedSighting ?? baselineSighting;
   const estimatedAverageSpeedKmh =
-    latestConfirmedSighting?.estimatedAverageSpeedKmh ?? baselineSighting.estimatedAverageSpeedKmh;
+    manualSpeedKmh ?? latestConfirmedSighting?.estimatedAverageSpeedKmh ?? baselineSighting.estimatedAverageSpeedKmh;
   const hoursSinceLatestUpdate = Math.max(
     0,
     (now.getTime() - new Date(estimationBaseSighting.sightingTimeIso).getTime()) / 3_600_000
@@ -173,12 +177,12 @@ export function buildTrackerSnapshot({
     Math.max(0, (now.getTime() - new Date(estimationBaseSighting.sightingTimeIso).getTime()) / 60_000)
   );
   const fallbackConfidenceReason =
-    now.getTime() < new Date(PARADE_START_ISO).getTime()
+    now.getTime() < new Date(paradeStartIso).getTime()
       ? "Parade has not started yet, so the tracker is pinned to the planned start checkpoint."
       : "No confirmed public sighting yet, so the estimate is still using the scheduled start assumption.";
 
   return {
-    paradeStartIso: PARADE_START_ISO,
+    paradeStartIso,
     evaluatedAtIso: now.toISOString(),
     routeLengthKm,
     latestConfirmedSighting,

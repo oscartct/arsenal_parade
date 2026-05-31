@@ -65,6 +65,11 @@ export type SimulationState = {
   anchorSimulatedIso: string | null;
 };
 
+export type TrackerControlState = {
+  liveRunStartIso: string | null;
+  manualSpeedKmh: number | null;
+};
+
 export type TrackerSnapshot = {
   paradeStartIso: string;
   evaluatedAtIso: string;
@@ -91,6 +96,7 @@ export type TrackerApiPayload = {
   checkpoints: Checkpoint[];
   snapshot: TrackerSnapshot;
   persistence: PersistenceInfo;
+  control: TrackerControlState;
   simulation: SimulationState & {
     effectiveNowIso: string;
   };
@@ -105,6 +111,7 @@ export type AdminApiPayload = {
   sightings: SightingRecord[];
   snapshot: TrackerSnapshot;
   persistence: PersistenceInfo;
+  control: TrackerControlState;
   simulation: SimulationState & {
     effectiveNowIso: string;
   };

@@ -30,6 +30,7 @@ export function AdminForm() {
   const [sightingSubmitting, setSightingSubmitting] = useState(false);
   const [routeSubmitting, setRouteSubmitting] = useState(false);
   const [simulationSubmitting, setSimulationSubmitting] = useState(false);
+  const [controlSubmitting, setControlSubmitting] = useState(false);
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
   const [adminPassword, setAdminPassword] = useState("");
@@ -40,6 +41,7 @@ export function AdminForm() {
   const [draftSelection, setDraftSelection] = useState<RouteSnap | null>(null);
   const [routeEditMode, setRouteEditMode] = useState(false);
   const [routeDraftPoints, setRouteDraftPoints] = useState<{ latitude: number; longitude: number }[]>([]);
+  const [manualSpeedInput, setManualSpeedInput] = useState("");
 
   const refreshAdminData = async () => {
     setLoading(true);
@@ -66,6 +68,14 @@ export function AdminForm() {
   useEffect(() => {
     void refreshAdminData();
   }, []);
+
+  useEffect(() => {
+    if (!payload) {
+      return;
+    }
+
+    setManualSpeedInput(payload.control.manualSpeedKmh !== null ? String(payload.control.manualSpeedKmh) : "");
+  }, [payload]);
 
   const latestSummary = useMemo(() => payload?.snapshot.latestConfirmedSighting ?? null, [payload]);
   const currentRoutePointCount = payload?.route.geometry.coordinates.length ?? 0;
@@ -277,6 +287,67 @@ export function AdminForm() {
     }
   };
 
+  const handleControlAction = async (
+    action: "start-live-run" | "reset-live-run" | "set-manual-speed" | "clear-manual-speed"
+  ) => {
+    if (action === "set-manual-speed" && !manualSpeedInput.trim()) {
+      setFeedback({
+        type: "error",
+        message: "Enter a bus speed before saving the manual override."
+      });
+      return;
+    }
+
+    setControlSubmitting(true);
+    setFeedback(null);
+
+    const body: { adminPassword: string; action: string; manualSpeedKmh?: number } = {
+      adminPassword,
+      action
+    };
+
+    if (action === "set-manual-speed") {
+      body.manualSpeedKmh = Number(manualSpeedInput);
+    }
+
+    try {
+      const response = await fetch("/api/admin/control", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(body)
+      });
+
+      const data = (await response.json()) as { error?: string };
+
+      if (!response.ok) {
+        throw new Error(data.error ?? "Unable to update live run controls.");
+      }
+
+      const successMessage = {
+        "start-live-run":
+          "Public tracking started from the current moment. Previous sightings were cleared and simulation was stopped.",
+        "reset-live-run": "Live run start reset back to the scheduled 2pm baseline.",
+        "set-manual-speed": "Manual speed override updated.",
+        "clear-manual-speed": "Manual speed override cleared. Automatic speed estimation is back in control."
+      }[action];
+
+      setFeedback({
+        type: "success",
+        message: successMessage
+      });
+      await refreshAdminData();
+    } catch (error) {
+      setFeedback({
+        type: "error",
+        message: error instanceof Error ? error.message : "Unable to update live run controls."
+      });
+    } finally {
+      setControlSubmitting(false);
+    }
+  };
+
   if (!payload) {
     return (
       <div className="field-grid">
@@ -311,7 +382,7 @@ export function AdminForm() {
         <div className="admin-header">
           <div>
             <p className="metric-label">Admin console</p>
-            <h2 className="admin-title">{routeEditMode ? "Route editor" : "Route and sighting tools"}</h2>
+            <h2 className="admin-title">{routeEditMode ? "Route editor" : "Live tracking controls"}</h2>
           </div>
           <button className="secondary-button" type="button" onClick={() => void refreshAdminData()} disabled={loading}>
             Refresh
@@ -328,21 +399,12 @@ export function AdminForm() {
           </div>
 
           <div className="metric">
-            <p className="metric-label">Tracker clock</p>
-            <p className="metric-value">{payload.simulation.isActive ? "Simulation active" : "Real time"}</p>
+            <p className="metric-label">Public run start</p>
+            <p className="metric-value">{formatDateTime(payload.snapshot.paradeStartIso)}</p>
             <p className="metric-subtle">
-              Effective tracker time: {effectiveNowLabel}
-            </p>
-          </div>
-
-          <div className="metric">
-            <p className="metric-label">Persistence status</p>
-            <p className="metric-value">
-              {payload.persistence.databaseConfigured ? "Postgres configured" : "Postgres not configured"}
-            </p>
-            <p className="metric-subtle">
-              Route: {payload.persistence.routeStorageMode} • Sightings: {payload.persistence.sightingsStorageMode} •
-              Simulation: {payload.persistence.simulationStorageMode}
+              {payload.control.liveRunStartIso
+                ? "Using the manually started live run time."
+                : "Using the scheduled 2pm parade start."}
             </p>
           </div>
 
@@ -350,29 +412,11 @@ export function AdminForm() {
             <p className="metric-label">Estimated bus speed</p>
             <p className="metric-value">{payload.snapshot.estimatedAverageSpeedKmh.toFixed(2)} km/h</p>
             <p className="metric-subtle">
-              {payload.snapshot.latestObservedSegmentSpeedKmh !== null
-                ? `Latest raw segment speed: ${payload.snapshot.latestObservedSegmentSpeedKmh.toFixed(2)} km/h`
-                : "Using the initial fallback speed until the first confirmed sighting."}
-            </p>
-          </div>
-
-          <div className="metric">
-            <p className="metric-label">Last measured segment</p>
-            <p className="metric-value">
-              {payload.snapshot.latestSegmentDistanceKm !== null && payload.snapshot.latestSegmentMinutes !== null
-                ? `${payload.snapshot.latestSegmentDistanceKm.toFixed(2)} km in ${payload.snapshot.latestSegmentMinutes.toFixed(0)} min`
-                : "No measured segment yet"}
-            </p>
-            <p className="metric-subtle">
-              Distance is measured along the saved route line, not as straight-line click distance.
-            </p>
-          </div>
-
-          <div className="metric">
-            <p className="metric-label">Route editor status</p>
-            <p className="metric-value">{routeEditMode ? "Editing route on live map" : "Locked to current saved route"}</p>
-            <p className="metric-subtle">
-              Saved route points: {currentRoutePointCount} • draft route points: {routeDraftPoints.length}
+              {payload.control.manualSpeedKmh !== null
+                ? "Manual speed override is currently active."
+                : payload.snapshot.latestObservedSegmentSpeedKmh !== null
+                  ? `Latest raw segment speed: ${payload.snapshot.latestObservedSegmentSpeedKmh.toFixed(2)} km/h`
+                  : "Using the initial fallback speed until the first confirmed sighting."}
             </p>
           </div>
 
@@ -388,66 +432,66 @@ export function AdminForm() {
         </div>
 
         <div className="editor-card">
-          <p className="metric-label">Simulation controls</p>
+          <p className="metric-label">Main controls</p>
           <p className="helper-text">
-            Start simulation to treat the current moment as the parade start time, then let the tracker advance in real time from there.
+            Use these during the real parade: start the live run if the bus sets off late, optionally pin the speed manually, then click the map to save the next confirmed sighting.
           </p>
           <div className="action-row">
             <button
-              className="secondary-button"
+              className="primary-button"
               type="button"
-              onClick={() => void handleSimulationAction("start")}
-              disabled={simulationSubmitting}
+              onClick={() => void handleControlAction("start-live-run")}
+              disabled={controlSubmitting}
             >
-              {simulationSubmitting && !payload.simulation.isActive ? "Starting..." : "Start fresh simulation now"}
+              {controlSubmitting ? "Starting..." : "Start public run now"}
             </button>
             <button
               className="secondary-button"
               type="button"
-              onClick={() => void handleSimulationAction("stop")}
-              disabled={simulationSubmitting || !payload.simulation.isActive}
+              onClick={() => void handleControlAction("reset-live-run")}
+              disabled={controlSubmitting}
             >
-              {simulationSubmitting && payload.simulation.isActive ? "Stopping..." : "Stop simulation"}
+              Reset to 2pm start
             </button>
           </div>
-          <p className="helper-text">
-            Parade start target: {formatDateTime(payload.snapshot.paradeStartIso)}
-          </p>
         </div>
 
         <div className="editor-card">
-          <p className="metric-label">Clean reset route editor</p>
+          <p className="metric-label">Manual speed override</p>
           <p className="helper-text">
-            Turn on route edit mode, then click directly on the visible map roads to redraw the parade line.
-            Save when the line sits correctly on the basemap.
+            If you want to take over from the automatic speed logic, set a fixed bus speed here. Clear it to return to automatic estimation.
           </p>
-          <div className="action-row">
-            {routeEditMode ? (
-              <>
-                <button className="secondary-button" type="button" onClick={undoRoutePoint} disabled={routeDraftPoints.length === 0 || routeSubmitting}>
-                  Undo last point
-                </button>
-                <button className="secondary-button" type="button" onClick={clearRouteDraft} disabled={routeSubmitting}>
-                  Clear draft
-                </button>
-                <button className="secondary-button" type="button" onClick={cancelRouteEdit} disabled={routeSubmitting}>
-                  Cancel edit
-                </button>
-                <button className="primary-button" type="button" onClick={() => void handleSaveRoute()} disabled={routeSubmitting}>
-                  {routeSubmitting ? "Saving route..." : "Save route"}
-                </button>
-              </>
-            ) : (
-              <button className="primary-button" type="button" onClick={startRouteEdit} disabled={loading}>
-                Edit route on map
-              </button>
-            )}
+          <div className="field-row">
+            <label htmlFor="manual-speed">Bus speed (km/h)</label>
+            <input
+              id="manual-speed"
+              type="number"
+              min="0"
+              max="20"
+              step="0.1"
+              value={manualSpeedInput}
+              onChange={(event) => setManualSpeedInput(event.target.value)}
+              placeholder="e.g. 4.5"
+            />
           </div>
-          {routeEditMode ? (
-            <p className="helper-text">
-              Click the map in travel order from Holloway Road / Drayton Park start all the way back to the same finish point.
-            </p>
-          ) : null}
+          <div className="action-row">
+            <button
+              className="primary-button"
+              type="button"
+              onClick={() => void handleControlAction("set-manual-speed")}
+              disabled={controlSubmitting}
+            >
+              {controlSubmitting ? "Saving..." : "Set manual speed"}
+            </button>
+            <button
+              className="secondary-button"
+              type="button"
+              onClick={() => void handleControlAction("clear-manual-speed")}
+              disabled={controlSubmitting || payload.control.manualSpeedKmh === null}
+            >
+              Clear manual speed
+            </button>
+          </div>
         </div>
 
         <form className="field-grid" onSubmit={handleSaveSighting}>
@@ -518,18 +562,122 @@ export function AdminForm() {
           </div>
 
           <div className="action-row">
-            <button
-              className="primary-button"
-              type="submit"
-              disabled={sightingSubmitting || loading || routeEditMode}
-            >
+            <button className="primary-button" type="submit" disabled={sightingSubmitting || loading || routeEditMode}>
               {sightingSubmitting ? "Saving..." : "Save clicked sighting"}
             </button>
           </div>
         </form>
 
+        <details className="advanced-tools">
+          <summary>Advanced tools</summary>
+          <div className="advanced-tools-body">
+            <div className="metric-list">
+              <div className="metric">
+                <p className="metric-label">Tracker clock</p>
+                <p className="metric-value">{payload.simulation.isActive ? "Simulation active" : "Real time"}</p>
+                <p className="metric-subtle">Effective tracker time: {effectiveNowLabel}</p>
+              </div>
+
+              <div className="metric">
+                <p className="metric-label">Persistence status</p>
+                <p className="metric-value">
+                  {payload.persistence.databaseConfigured ? "Postgres configured" : "Postgres not configured"}
+                </p>
+                <p className="metric-subtle">
+                  Route: {payload.persistence.routeStorageMode} • Sightings: {payload.persistence.sightingsStorageMode} •
+                  Simulation: {payload.persistence.simulationStorageMode}
+                </p>
+              </div>
+
+              <div className="metric">
+                <p className="metric-label">Last measured segment</p>
+                <p className="metric-value">
+                  {payload.snapshot.latestSegmentDistanceKm !== null && payload.snapshot.latestSegmentMinutes !== null
+                    ? `${payload.snapshot.latestSegmentDistanceKm.toFixed(2)} km in ${payload.snapshot.latestSegmentMinutes.toFixed(0)} min`
+                    : "No measured segment yet"}
+                </p>
+                <p className="metric-subtle">
+                  Distance is measured along the saved route line, not as straight-line click distance.
+                </p>
+              </div>
+
+              <div className="metric">
+                <p className="metric-label">Route editor status</p>
+                <p className="metric-value">{routeEditMode ? "Editing route on live map" : "Locked to current saved route"}</p>
+                <p className="metric-subtle">
+                  Saved route points: {currentRoutePointCount} • draft route points: {routeDraftPoints.length}
+                </p>
+              </div>
+            </div>
+
+            <div className="editor-card">
+              <p className="metric-label">Simulation controls</p>
+              <p className="helper-text">
+                Start simulation to treat the current moment as the parade start time, then let the tracker advance in real time from there.
+              </p>
+              <div className="action-row">
+                <button
+                  className="secondary-button"
+                  type="button"
+                  onClick={() => void handleSimulationAction("start")}
+                  disabled={simulationSubmitting}
+                >
+                  {simulationSubmitting && !payload.simulation.isActive ? "Starting..." : "Start fresh simulation now"}
+                </button>
+                <button
+                  className="secondary-button"
+                  type="button"
+                  onClick={() => void handleSimulationAction("stop")}
+                  disabled={simulationSubmitting || !payload.simulation.isActive}
+                >
+                  {simulationSubmitting && payload.simulation.isActive ? "Stopping..." : "Stop simulation"}
+                </button>
+              </div>
+              <p className="helper-text">Parade start target: {formatDateTime(payload.snapshot.paradeStartIso)}</p>
+            </div>
+
+            <div className="editor-card">
+              <p className="metric-label">Route editor</p>
+              <p className="helper-text">
+                Turn on route edit mode, then click directly on the visible map roads to redraw the parade line.
+                Save when the line sits correctly on the basemap.
+              </p>
+              <div className="action-row">
+                {routeEditMode ? (
+                  <>
+                    <button className="secondary-button" type="button" onClick={undoRoutePoint} disabled={routeDraftPoints.length === 0 || routeSubmitting}>
+                      Undo last point
+                    </button>
+                    <button className="secondary-button" type="button" onClick={clearRouteDraft} disabled={routeSubmitting}>
+                      Clear draft
+                    </button>
+                    <button className="secondary-button" type="button" onClick={cancelRouteEdit} disabled={routeSubmitting}>
+                      Cancel edit
+                    </button>
+                    <button className="primary-button" type="button" onClick={() => void handleSaveRoute()} disabled={routeSubmitting}>
+                      {routeSubmitting ? "Saving route..." : "Save route"}
+                    </button>
+                  </>
+                ) : (
+                  <button className="primary-button" type="button" onClick={startRouteEdit} disabled={loading}>
+                    Edit route on map
+                  </button>
+                )}
+              </div>
+              {routeEditMode ? (
+                <p className="helper-text">
+                  Click the map in travel order from Holloway Road / Drayton Park start all the way back to the same finish point.
+                </p>
+              ) : null}
+            </div>
+          </div>
+        </details>
+
         <p className="helper-text">
-          Sighting flow: keep route edit mode off, click the current route, then save the confirmed sighting.
+          Main flow: start the live run if needed, click the current route position, then save the confirmed sighting.
+        </p>
+        <p className="helper-text">
+          If the auto speed feels wrong, set a manual speed override and the public tracker will follow that instead.
         </p>
         <p className="helper-text">
           Speed model: each new sighting measures distance along the saved route between the last two confirmed

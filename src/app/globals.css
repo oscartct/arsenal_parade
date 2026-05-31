@@ -322,6 +322,30 @@ textarea {
   flex-wrap: wrap;
 }
 
+.advanced-tools {
+  margin-top: 12px;
+  border-radius: 18px;
+  background: rgba(31, 28, 26, 0.05);
+  border: 1px solid rgba(34, 34, 34, 0.08);
+}
+
+.advanced-tools summary {
+  cursor: pointer;
+  list-style: none;
+  padding: 16px 18px;
+  font-weight: 700;
+}
+
+.advanced-tools summary::-webkit-details-marker {
+  display: none;
+}
+
+.advanced-tools-body {
+  display: grid;
+  gap: 16px;
+  padding: 0 16px 16px;
+}
+
 .primary-button,
 .secondary-button {
   border: 0;
@@ -473,6 +497,7 @@ textarea {
 
   .hero-simple-content {
     align-items: flex-start;
+    flex-wrap: wrap;
   }
 
   .hero-logo-shell {
@@ -484,5 +509,9 @@ textarea {
 
   .hero-logo {
     height: 74px;
+  }
+
+  .action-row > button {
+    width: 100%;
   }
 }

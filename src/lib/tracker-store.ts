@@ -19,6 +19,7 @@ import type {
   SightingInput,
   SightingRecord,
   StorageMode,
+  TrackerControlState,
   TrackerApiPayload
 } from "@/lib/types";
 
@@ -27,9 +28,11 @@ type GlobalState = typeof globalThis & {
   __arsenalParadeCheckpoints?: Checkpoint[];
   __arsenalParadeSightings?: SightingRecord[];
   __arsenalParadeSimulation?: SimulationState;
+  __arsenalParadeControl?: TrackerControlState;
   __arsenalParadeRouteStorageMode?: StorageMode;
   __arsenalParadeStorageMode?: StorageMode;
   __arsenalParadeSimulationStorageMode?: StorageMode;
+  __arsenalParadeControlStorageMode?: StorageMode;
 };
 
 const runtimeState = globalThis as GlobalState;
@@ -60,11 +63,13 @@ async function loadStoredValue<T>({
     | "__arsenalParadeRoute"
     | "__arsenalParadeCheckpoints"
     | "__arsenalParadeSightings"
-    | "__arsenalParadeSimulation";
+    | "__arsenalParadeSimulation"
+    | "__arsenalParadeControl";
   storageModeKey:
     | "__arsenalParadeRouteStorageMode"
     | "__arsenalParadeStorageMode"
-    | "__arsenalParadeSimulationStorageMode";
+    | "__arsenalParadeSimulationStorageMode"
+    | "__arsenalParadeControlStorageMode";
   fallbackFactory?: () => T;
 }): Promise<T> {
   if (hasDatabaseConnection()) {
@@ -132,11 +137,13 @@ async function persistStoredValue<T>({
     | "__arsenalParadeRoute"
     | "__arsenalParadeCheckpoints"
     | "__arsenalParadeSightings"
-    | "__arsenalParadeSimulation";
+    | "__arsenalParadeSimulation"
+    | "__arsenalParadeControl";
   storageModeKey:
     | "__arsenalParadeRouteStorageMode"
     | "__arsenalParadeStorageMode"
-    | "__arsenalParadeSimulationStorageMode";
+    | "__arsenalParadeSimulationStorageMode"
+    | "__arsenalParadeControlStorageMode";
 }) {
   runtimeState[cacheKey] = value as never;
 
@@ -167,6 +174,13 @@ function buildDefaultSimulationState(): SimulationState {
   };
 }
 
+function buildDefaultControlState(): TrackerControlState {
+  return {
+    liveRunStartIso: null,
+    manualSpeedKmh: null
+  };
+}
+
 function isProductionRuntime() {
   return process.env.NODE_ENV === "production";
 }
@@ -179,6 +193,10 @@ function buildPersistenceInfo() {
     sightingsStorageMode: runtimeState.__arsenalParadeStorageMode ?? "memory",
     simulationStorageMode: runtimeState.__arsenalParadeSimulationStorageMode ?? "memory"
   };
+}
+
+function getEffectiveParadeStartIso(control: TrackerControlState) {
+  return control.liveRunStartIso ?? PARADE_START_ISO;
 }
 
 export async function getRoute(): Promise<RouteFeature> {
@@ -238,6 +256,16 @@ export async function getSimulationState() {
   });
 }
 
+export async function getControlState() {
+  return loadStoredValue<TrackerControlState>({
+    key: "control",
+    fileName: "control.json",
+    cacheKey: "__arsenalParadeControl",
+    storageModeKey: "__arsenalParadeControlStorageMode",
+    fallbackFactory: buildDefaultControlState
+  });
+}
+
 async function persistSimulationState(simulation: SimulationState) {
   await persistStoredValue({
     key: "simulation",
@@ -245,6 +273,16 @@ async function persistSimulationState(simulation: SimulationState) {
     value: simulation,
     cacheKey: "__arsenalParadeSimulation",
     storageModeKey: "__arsenalParadeSimulationStorageMode"
+  });
+}
+
+async function persistControlState(control: TrackerControlState) {
+  await persistStoredValue({
+    key: "control",
+    fileName: "control.json",
+    value: control,
+    cacheKey: "__arsenalParadeControl",
+    storageModeKey: "__arsenalParadeControlStorageMode"
   });
 }
 
@@ -267,7 +305,11 @@ async function persistRouteAndCheckpoints(route: RouteFeature, checkpoints: Chec
   ]);
 }
 
-function buildSyntheticStartSighting(checkpoints: Checkpoint[]): SightingRecord {
+function buildSyntheticStartSighting(
+  checkpoints: Checkpoint[],
+  paradeStartIso: string,
+  baselineSpeedKmh: number
+): SightingRecord {
   const startCheckpoint = checkpoints[0];
 
   return {
@@ -277,14 +319,14 @@ function buildSyntheticStartSighting(checkpoints: Checkpoint[]): SightingRecord 
     latitude: startCheckpoint.latitude,
     longitude: startCheckpoint.longitude,
     distanceAlongRouteKm: startCheckpoint.distanceAlongRouteKm,
-    sightingTimeIso: PARADE_START_ISO,
+    sightingTimeIso: paradeStartIso,
     sourceNote: "Using the scheduled parade start as the initial estimate.",
     confidence: "medium",
-    estimatedAverageSpeedKmh: DEFAULT_SPEED_KMH,
+    estimatedAverageSpeedKmh: baselineSpeedKmh,
     observedSegmentSpeedKmh: null,
     distanceFromPreviousKm: 0,
     minutesFromPrevious: 0,
-    createdAtIso: PARADE_START_ISO
+    createdAtIso: paradeStartIso
   };
 }
 
@@ -306,26 +348,31 @@ function getEffectiveNow(simulation: SimulationState, realNow: Date) {
 }
 
 export async function getTrackerPayload(nowOverride?: string): Promise<TrackerApiPayload> {
-  const [route, checkpoints, actualSightings, simulation] = await Promise.all([
+  const [route, checkpoints, actualSightings, simulation, control] = await Promise.all([
     getRoute(),
     getCheckpoints(),
     getSightings(),
-    getSimulationState()
+    getSimulationState(),
+    getControlState()
   ]);
   const realNow = parseNow(nowOverride);
   const effectiveNow = getEffectiveNow(simulation, realNow);
+  const effectiveParadeStartIso = getEffectiveParadeStartIso(control);
   const snapshot = buildTrackerSnapshot({
     route,
     checkpoints,
     actualSightings,
     now: effectiveNow,
-    storageMode: runtimeState.__arsenalParadeStorageMode ?? "memory"
+    storageMode: runtimeState.__arsenalParadeStorageMode ?? "memory",
+    paradeStartIso: effectiveParadeStartIso,
+    manualSpeedKmh: control.manualSpeedKmh
   });
 
   return {
     route,
     checkpoints,
     snapshot,
+    control,
     persistence: buildPersistenceInfo(),
     simulation: {
       ...simulation,
@@ -338,13 +385,15 @@ export async function getTrackerPayload(nowOverride?: string): Promise<TrackerAp
 }
 
 export async function getAdminPayload(): Promise<AdminApiPayload> {
-  const [route, checkpoints, sightings, simulation] = await Promise.all([
+  const [route, checkpoints, sightings, simulation, control] = await Promise.all([
     getRoute(),
     getCheckpoints(),
     getSightings(),
-    getSimulationState()
+    getSimulationState(),
+    getControlState()
   ]);
   const effectiveNow = getEffectiveNow(simulation, new Date());
+  const effectiveParadeStartIso = getEffectiveParadeStartIso(control);
 
   return {
     route,
@@ -355,8 +404,11 @@ export async function getAdminPayload(): Promise<AdminApiPayload> {
       checkpoints,
       actualSightings: sightings,
       now: effectiveNow,
-      storageMode: runtimeState.__arsenalParadeStorageMode ?? "memory"
+      storageMode: runtimeState.__arsenalParadeStorageMode ?? "memory",
+      paradeStartIso: effectiveParadeStartIso,
+      manualSpeedKmh: control.manualSpeedKmh
     }),
+    control,
     persistence: buildPersistenceInfo(),
     simulation: {
       ...simulation,
@@ -366,11 +418,12 @@ export async function getAdminPayload(): Promise<AdminApiPayload> {
 }
 
 export async function saveSighting(input: SightingInput) {
-  const [route, checkpoints, currentSightings, simulation] = await Promise.all([
+  const [route, checkpoints, currentSightings, simulation, control] = await Promise.all([
     getRoute(),
     getCheckpoints(),
     getSightings(),
-    getSimulationState()
+    getSimulationState(),
+    getControlState()
   ]);
   const sightingTime = input.sightingTimeIso
     ? new Date(input.sightingTimeIso)
@@ -389,8 +442,11 @@ export async function saveSighting(input: SightingInput) {
     throw new Error("Select a checkpoint or click on the map to create a sighting.");
   }
 
+  const effectiveParadeStartIso = getEffectiveParadeStartIso(control);
   const previousSighting =
-    currentSightings.length > 0 ? currentSightings[currentSightings.length - 1] : buildSyntheticStartSighting(checkpoints);
+    currentSightings.length > 0
+      ? currentSightings[currentSightings.length - 1]
+      : buildSyntheticStartSighting(checkpoints, effectiveParadeStartIso, control.manualSpeedKmh ?? DEFAULT_SPEED_KMH);
   const routeSelection = checkpoint
     ? {
         latitude: checkpoint.latitude,
@@ -433,14 +489,14 @@ export async function saveSighting(input: SightingInput) {
   nextRecord.observedSegmentSpeedKmh = shouldBlendSpeed ? segmentMetrics.observedSpeedKmh : null;
   nextRecord.estimatedAverageSpeedKmh = shouldBlendSpeed
     ? blendEstimatedSpeed({
-        previousEstimatedSpeedKmh: previousSighting.estimatedAverageSpeedKmh,
+        previousEstimatedSpeedKmh: control.manualSpeedKmh ?? previousSighting.estimatedAverageSpeedKmh,
         observedSpeedKmh: segmentMetrics.observedSpeedKmh,
         confidence: input.confidence,
         distanceDeltaKm: segmentMetrics.distanceDeltaKm,
         elapsedHours: segmentMetrics.elapsedHours,
         isFirstConfirmedSighting: currentSightings.length === 0
       })
-    : previousSighting.estimatedAverageSpeedKmh;
+    : control.manualSpeedKmh ?? previousSighting.estimatedAverageSpeedKmh;
 
   const updatedSightings = [...currentSightings, nextRecord].sort(
     (left, right) => new Date(left.sightingTimeIso).getTime() - new Date(right.sightingTimeIso).getTime()
@@ -499,4 +555,48 @@ export async function stopSimulation() {
   const simulation = buildDefaultSimulationState();
   await persistSimulationState(simulation);
   return simulation;
+}
+
+export async function startLiveRunNow() {
+  const [currentControl] = await Promise.all([getControlState(), clearSightings(), stopSimulation()]);
+  const nextControl: TrackerControlState = {
+    ...currentControl,
+    liveRunStartIso: new Date().toISOString()
+  };
+  await persistControlState(nextControl);
+  return nextControl;
+}
+
+export async function resetLiveRunStart() {
+  const currentControl = await getControlState();
+  const nextControl: TrackerControlState = {
+    ...currentControl,
+    liveRunStartIso: null
+  };
+  await persistControlState(nextControl);
+  return nextControl;
+}
+
+export async function setManualSpeedOverride(speedKmh: number) {
+  if (!Number.isFinite(speedKmh) || speedKmh < 0 || speedKmh > 20) {
+    throw new Error("Manual speed must be between 0 and 20 km/h.");
+  }
+
+  const currentControl = await getControlState();
+  const nextControl: TrackerControlState = {
+    ...currentControl,
+    manualSpeedKmh: Number(speedKmh.toFixed(2))
+  };
+  await persistControlState(nextControl);
+  return nextControl;
+}
+
+export async function clearManualSpeedOverride() {
+  const currentControl = await getControlState();
+  const nextControl: TrackerControlState = {
+    ...currentControl,
+    manualSpeedKmh: null
+  };
+  await persistControlState(nextControl);
+  return nextControl;
 }
